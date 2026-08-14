@@ -464,8 +464,12 @@ var shipped = o.status === "shipped" || o.status === "delivered";
       document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
       document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
       tab.classList.add("active");
-      $("panel-" + tab.dataset.tab).classList.add("active");
+      var targetPanel = $("panel-" + tab.dataset.tab);
+      if (targetPanel) targetPanel.classList.add("active");
       if (tab.dataset.tab === "map") ensureMapAll();
+      if (tab.scrollIntoView) {
+        tab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
     });
   });
 
