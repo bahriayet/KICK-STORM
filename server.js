@@ -156,8 +156,10 @@ app.use(compression());
 app.use(express.json({ limit: "6mb" }));
 app.use(express.static(path.join(__dirname, "public"), {
   setHeaders(res, filePath) {
-    if (filePath.endsWith(".html")) {
-      res.setHeader("Cache-Control", "no-cache");
+    if (filePath.endsWith(".html") || filePath.endsWith("admin.js")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
     } else if (filePath.includes(path.sep + "vendor" + path.sep)) {
       res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     } else if (/\.(css|js|svg|png|jpg|webp|woff2)$/i.test(filePath)) {
