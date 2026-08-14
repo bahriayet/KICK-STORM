@@ -1745,3 +1745,29 @@ html.footer-reveal main{margin-bottom:var(--footer-h,0)}
     display: none !important;
   }
 }
+
+/* === PERFORMANCE: content-visibility for below-fold sections === */
+#koleksi,
+#forge,
+#cerita,
+#keunggulan,
+#klub,
+#lacak,
+footer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+
+/* GPU-promote animated elements only during animation */
+.showcase-slide,
+.card,
+.hero-shoe-wrap {
+  will-change: transform;
+}
+
+/* Reduce paint area for fixed elements */
+.nav,
+.progress-bar,
+.mobile-bottom-bar {
+  contain: layout style;
+}

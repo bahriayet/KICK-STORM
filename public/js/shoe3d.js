@@ -320,8 +320,10 @@
 
     var clock = new THREE.Clock();
     var animFrameId;
+    var isVisible = true;
 
     function animate() {
+      if (!isVisible) return;
       animFrameId = requestAnimationFrame(animate);
       var elapsedTime = clock.getElapsedTime();
 
@@ -343,6 +345,24 @@
       renderer.render(scene, camera);
     }
     animate();
+
+    // Pause render loop when canvas is off-screen (saves GPU & battery)
+    var visIO = null;
+    if ("IntersectionObserver" in window) {
+      visIO = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          isVisible = entry.isIntersecting;
+          if (isVisible) {
+            clock.start();
+            animate();
+          } else {
+            cancelAnimationFrame(animFrameId);
+            clock.stop();
+          }
+        });
+      }, { threshold: 0 });
+      visIO.observe(container);
+    }
 
     function onResize() {
       if (!container) return;
@@ -369,6 +389,7 @@
       },
       destroy: function () {
         cancelAnimationFrame(animFrameId);
+        if (visIO) visIO.disconnect();
         window.removeEventListener("resize", onResize);
         if (renderer && renderer.domElement) renderer.domElement.remove();
       }
