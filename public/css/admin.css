@@ -142,11 +142,12 @@ select.field option{background:var(--surface)}
 .tab{
   background:transparent;border:none;color:var(--muted);cursor:pointer;font-weight:600;font-size:.9rem;
   padding:10px 18px;border-radius:var(--radius-sm) var(--radius-sm) 0 0;border-bottom:2px solid transparent;
-  transition:color .2s,border-color .2s;
+  transition:color .2s,border-color .2s;display:inline-flex;align-items:center;gap:7px;
 }
 .tab:hover{color:var(--text)}
 .tab.active{color:var(--volt);border-bottom-color:var(--volt)}
-.tab span{opacity:.6;font-size:.72rem;margin-left:2px}
+.tab span{opacity:.7;font-size:.74rem;margin-left:2px}
+.tab .tab-icon{font-size:1.05rem;line-height:1;opacity:1}
 
 .panel{display:none;padding:24px clamp(16px,3vw,36px) 60px;max-width:1400px;margin:0 auto}
 .panel.active{display:block}
@@ -448,26 +449,54 @@ html, body {
     max-width: 100% !important;
   }
 
+  /* 1-Baris Pill Slider / Carousel untuk Mobile */
   .tabs {
-    display: flex;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 6px;
-    padding: 0 12px 8px !important;
-    margin: 16px 0 0 !important;
-    scrollbar-width: none;
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 8px !important;
+    padding: 12px 14px 8px !important;
+    margin: 12px 0 0 !important;
+    scrollbar-width: none !important;
     width: 100% !important;
     max-width: 100% !important;
+    border-bottom: 1px solid var(--stroke-2) !important;
+    flex-wrap: nowrap !important;
+    scroll-behavior: smooth;
   }
   .tabs::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
   .tab {
-    white-space: nowrap;
-    padding: 10px 16px;
-    min-height: 44px;
-    font-size: 0.85rem;
-    flex-shrink: 0;
+    white-space: nowrap !important;
+    padding: 8px 16px !important;
+    min-height: 40px !important;
+    font-size: 0.84rem !important;
+    font-weight: 600 !important;
+    flex-shrink: 0 !important;
+    border-radius: 99px !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--stroke-2) !important;
+    color: var(--muted) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
+  }
+  .tab:hover {
+    color: var(--text) !important;
+    border-color: var(--stroke) !important;
+    background: var(--surface-2) !important;
+  }
+  .tab.active {
+    background: var(--volt) !important;
+    border-color: var(--volt) !important;
+    color: #0A0A0C !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 16px rgba(214, 255, 63, 0.4) !important;
+  }
+  .tab.active .tab-icon {
+    filter: brightness(0);
   }
 
   .panel {
