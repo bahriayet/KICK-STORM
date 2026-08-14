@@ -26,12 +26,16 @@
     $("app-view").style.display = "block";
   }
 
-  function logout() {
+  function logout(errMsg) {
     if (window.__ksSse) { window.__ksSse.close(); window.__ksSse = null; }
     token = "";
     localStorage.removeItem(TOKEN_KEY);
     showLogin();
     $("login-password").value = "";
+    if (errMsg) {
+      var msg = $("login-msg");
+      if (msg) { msg.textContent = errMsg; msg.className = "login-msg err"; }
+    }
   }
 
   function api(path, opts) {
@@ -386,23 +390,27 @@ var shipped = o.status === "shipped" || o.status === "delivered";
     e.preventDefault();
     var msg = $("login-msg");
     var btn = $("login-btn");
-    msg.textContent = "Memeriksa...";
+    var pwd = $("login-password").value.trim();
+    if (!pwd) return;
+    msg.textContent = "Memverifikasi...";
     msg.className = "login-msg";
     btn.disabled = true;
     fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: $("login-password").value })
+      body: JSON.stringify({ password: pwd })
     }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
-        if (res.ok) {
+        if (res.ok && res.data && res.data.token) {
           token = res.data.token;
           localStorage.setItem(TOKEN_KEY, token);
-          refresh();
+          msg.textContent = "";
+          $("login-password").value = "";
           showApp();
+          refresh();
           connectEvents();
         } else {
-          msg.textContent = res.data.error || "Gagal masuk.";
+          msg.textContent = (res.data && res.data.error) || "Password salah.";
           msg.className = "login-msg err";
         }
       })
@@ -1614,11 +1622,20 @@ var shipped = o.status === "shipped" || o.status === "delivered";
 
   if (token) {
     api("/api/orders").then(function (res) {
-      if (res.ok) { refresh(); showApp(); }
-      else if (res.status === 401) logout();
-      else { toast(res.data.error || "Gagal memeriksa sesi.", true); logout(); }
-      connectEvents();
-    }).catch(function () { toast("Gagal terhubung ke server.", true); });
+      if (res.ok) {
+        showApp();
+        refresh();
+        connectEvents();
+      } else if (res.status === 401) {
+        logout("Sesi telah berakhir, silakan masukkan password kembali.");
+      } else {
+        showApp();
+        refresh();
+      }
+    }).catch(function () {
+      showApp();
+      refresh();
+    });
   } else {
     showLogin();
   }
