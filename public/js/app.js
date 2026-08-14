@@ -967,8 +967,7 @@ document.getElementById("product-grid").addEventListener("click", function (e) {
 });
 
 // Wishlist drawer toggle
-var wishlistOpen = false;
-document.getElementById("wishlist-open").addEventListener("click", function () {
+function openWishlist() {
   var drawer = document.getElementById("wishlist-drawer");
   var overlay = document.getElementById("wishlist-overlay");
   renderWishlist();
@@ -976,13 +975,23 @@ document.getElementById("wishlist-open").addEventListener("click", function () {
   overlay.classList.add("open");
   document.body.style.overflow = "hidden";
   wishlistOpen = true;
-});
+}
+
+var wishlistOpen = false;
+document.getElementById("wishlist-open").addEventListener("click", openWishlist);
+var mbbWishlist = document.getElementById("mbb-wishlist-btn");
+if (mbbWishlist) mbbWishlist.addEventListener("click", openWishlist);
 
 function renderWishlist() {
   var wishlist = JSON.parse(localStorage.getItem("ks_wishlist") || "[]") || [];
   var grid = document.getElementById("wishlist-items");
   var count = document.getElementById("wishlist-count");
+  var mbbBadge = document.getElementById("mbb-wishlist-badge");
   if (count) count.textContent = wishlist.length;
+  if (mbbBadge) {
+    mbbBadge.hidden = wishlist.length === 0;
+    mbbBadge.textContent = wishlist.length > 99 ? "99+" : wishlist.length;
+  }
   if (wishlist.length === 0) {
     grid.innerHTML = '<p class="cart-empty">Wishlist kosong.<br>Ketuk \u2661 di kartu produk untuk menyimpan incaranmu.</p>';
     return;
@@ -990,11 +999,12 @@ function renderWishlist() {
   grid.innerHTML = wishlist.map(function (id) {
     var p = PRODUCTS.find(function (x) { return x.id === id; });
     if (!p) return "";
-    return '<div class="cart-item">' + '<img src="' + productImg(p) + '" alt="' + p.name + '" class="cart-item-img" />' +
+    return '<div class="cart-item wishlist-item">' +
+      '<img src="' + productImg(p) + '" alt="' + p.name + '" class="cart-item-img" />' +
       '<div class="cart-item-info">' +
       '<p class="cart-item-name">' + p.name + "</p>" +
       '<p class="cart-item-price">' + rupiah(p.price) + "</p>" +
-      '<button class="btn btn-card" type="button" data-add="' + p.id + '" style="margin-top:8px">+ Keranjang</button>' +
+      '<button class="btn btn-primary btn-sm btn-wishlist-add" type="button" data-add="' + p.id + '" style="margin-top:6px;padding:7px 14px;font-size:.8rem">+ Keranjang</button>' +
       "</div>" +
       '<button class="cart-remove" type="button" data-rem-wishlist="' + p.id + '">Hapus</button>' +
       "</div>";
