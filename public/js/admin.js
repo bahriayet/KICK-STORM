@@ -432,46 +432,6 @@ var shipped = o.status === "shipped" || o.status === "delivered";
       .catch(function () { toast("Gagal mengakhiri sesi.", true); });
   });
 
-  /* tab titles mapping */
-  var TAB_TITLES = {
-    orders: "Manajemen Pesanan",
-    products: "Katalog & Stok Produk",
-    map: "Peta Pengiriman Pesanan",
-    couriers: "Manajemen Kurir & Armada",
-    coupons: "Kupon Diskon & Promo",
-    referrals: "Program Referral",
-    flash: "Flash Sale Terjadwal",
-    drops: "Drop Rilis & Antrian",
-    members: "Member & Akun Pelanggan",
-    settings: "Pengaturan & Konfigurasi Toko"
-  };
-
-  /* switch tab function */
-  function switchTab(tabKey) {
-    if (!tabKey) return;
-    document.querySelectorAll(".tab").forEach(function (el) {
-      if (el.dataset.tab === tabKey) {
-        el.classList.add("active");
-      } else {
-        el.classList.remove("active");
-      }
-    });
-
-    document.querySelectorAll(".panel").forEach(function (p) {
-      p.classList.remove("active");
-    });
-    var targetPanel = $("panel-" + tabKey);
-    if (targetPanel) targetPanel.classList.add("active");
-
-    if (tabKey === "map") ensureMapAll();
-
-    // Scroll active tab into view smoothly on mobile
-    var activeTab = document.querySelector(".tab.active");
-    if (activeTab && activeTab.scrollIntoView) {
-      activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    }
-  }
-
   /* mobile menu toggle */
   var menuToggle = $("admin-menu-toggle");
   var topbarMenu = $("topbar-menu");
@@ -498,12 +458,14 @@ var shipped = o.status === "shipped" || o.status === "delivered";
     });
   }
 
-  /* tabs click event */
-  document.querySelectorAll(".tab").forEach(function (tabEl) {
-    tabEl.addEventListener("click", function () {
-      if (tabEl.dataset && tabEl.dataset.tab) {
-        switchTab(tabEl.dataset.tab);
-      }
+  /* tabs */
+  document.querySelectorAll(".tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+      document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
+      tab.classList.add("active");
+      $("panel-" + tab.dataset.tab).classList.add("active");
+      if (tab.dataset.tab === "map") ensureMapAll();
     });
   });
 
