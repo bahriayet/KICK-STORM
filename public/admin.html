@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=2026081509">
+<link rel="stylesheet" href="/css/admin.css?v=2026081510">
 </head>
 <body>
 
@@ -131,37 +131,50 @@
     </div>
   </header>
 
-  <div class="stats-row" id="stats-row"></div>
+  <!-- Collapsible Analytics & Stats Section (Compact on Mobile) -->
+  <div class="analytics-section" id="analytics-section">
+    <button class="analytics-toggle-btn" id="analytics-toggle-btn" type="button" aria-expanded="false">
+      <div class="toggle-btn-left">
+        <span class="toggle-icon">📊</span>
+        <span class="toggle-title">Ringkasan Bisnis &amp; Grafik Penjualan</span>
+      </div>
+      <span class="toggle-chevron" id="toggle-chevron">▾</span>
+    </button>
 
-  <div class="top-products-card" id="top-products-card" hidden>
-    <div class="panel-head">
-      <div>
-        <p class="chart-title">Produk Paling Laku</p>
-        <p class="chart-sub">Revenue per produk (14 hari terakhir)</p>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Produk</th><th>Revenue</th><th>Terjual</th></tr>
-        </thead>
-        <tbody id="top-products-body"></tbody>
-      </table>
-    </div>
-  </div>
+    <div class="analytics-content" id="analytics-content">
+      <div class="stats-row" id="stats-row"></div>
 
-  <div class="chart-card" id="chart-card" hidden>
-    <div class="chart-head">
-      <div>
-        <p class="chart-title">Penjualan 14 Hari Terakhir</p>
-        <p class="chart-sub">Pendapatan harian dari pesanan yang tidak dibatalkan.</p>
+      <div class="top-products-card" id="top-products-card" hidden>
+        <div class="panel-head">
+          <div>
+            <p class="chart-title">Produk Paling Laku</p>
+            <p class="chart-sub">Revenue per produk (14 hari terakhir)</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Produk</th><th>Revenue</th><th>Terjual</th></tr>
+            </thead>
+            <tbody id="top-products-body"></tbody>
+          </table>
+        </div>
       </div>
-      <div class="chart-total">
-        <span class="chart-total-label">Pendapatan 14 hari</span>
-        <strong id="chart-total">Rp 0</strong>
+
+      <div class="chart-card" id="chart-card" hidden>
+        <div class="chart-head">
+          <div>
+            <p class="chart-title">Penjualan 14 Hari Terakhir</p>
+            <p class="chart-sub">Pendapatan harian dari pesanan yang tidak dibatalkan.</p>
+          </div>
+          <div class="chart-total">
+            <span class="chart-total-label">Pendapatan 14 hari</span>
+            <strong id="chart-total">Rp 0</strong>
+          </div>
+        </div>
+        <canvas id="sales-chart" height="200" aria-label="Grafik pendapatan 14 hari terakhir"></canvas>
       </div>
     </div>
-    <canvas id="sales-chart" height="200" aria-label="Grafik pendapatan 14 hari terakhir"></canvas>
   </div>
 
   <nav class="tabs" aria-label="Menu admin">
@@ -596,6 +609,6 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="/js/admin.js?v=2026081509"></script>
+<script src="/js/admin.js?v=2026081510"></script>
 </body>
 </html>
