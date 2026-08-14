@@ -1664,18 +1664,62 @@ html.footer-reveal main{margin-bottom:var(--footer-h,0)}
 
   /* Pin Slides (Story section) */
   .pin-slide {
-    grid-template-columns: 1fr !important;
-    padding: 0 20px !important;
-    gap: 18px !important;
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 20px 20px calc(70px + env(safe-area-inset-bottom)) 20px !important;
+    gap: 0 !important;
+    pointer-events: none !important;
+  }
+  .pin-slide-content {
+    position: relative !important;
+    z-index: 5 !important;
+    pointer-events: auto !important;
+    max-width: 440px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    text-align: center !important;
+  }
+  .pin-num {
+    font-size: clamp(2.4rem, 8vw, 3.8rem) !important;
+    margin-bottom: 2px !important;
+  }
+  .pin-title {
+    font-size: clamp(1.65rem, 5.5vw, 2.4rem) !important;
+    margin: 6px 0 10px !important;
+  }
+  .pin-copy {
+    font-size: 0.88rem !important;
+    line-height: 1.45 !important;
+    max-width: 36ch !important;
+    margin: 0 auto !important;
+  }
+  .pin-list {
+    margin-top: 12px !important;
+    gap: 6px !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    text-align: left !important;
+    align-items: flex-start !important;
+  }
+  .pin-list li {
+    font-size: 0.82rem !important;
   }
   .shoe-3d-pin, .pin-shoe {
-    position: relative !important;
-    right: auto !important;
-    top: auto !important;
-    transform: none !important;
-    width: 100% !important;
-    height: 240px !important;
-    margin-top: 16px;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(86vw, 320px) !important;
+    height: 320px !important;
+    opacity: 0.20 !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.8));
+    margin-top: 0 !important;
   }
 
   /* Product Catalog Grid */
@@ -1746,10 +1790,7 @@ html.footer-reveal main{margin-bottom:var(--footer-h,0)}
   }
 }
 
-/* === PERFORMANCE: content-visibility for below-fold sections === */
-#koleksi,
-#forge,
-#cerita,
+/* === PERFORMANCE: content-visibility for below-fold static sections === */
 #keunggulan,
 #klub,
 #lacak,
