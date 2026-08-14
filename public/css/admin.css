@@ -343,6 +343,81 @@ table .btn{padding:6px 12px;font-size:.75rem}
 .chip-queue{background:rgba(214,255,63,.1);border-color:rgba(214,255,63,.4);color:var(--volt)}
 .status-cell{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 
+/* --- Compact Order Action Dropdown --- */
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.action-summary {
+  list-style: none !important;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+  font-size: 0.76rem !important;
+  padding: 6px 11px !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--stroke-2) !important;
+  border-radius: var(--radius-sm);
+  color: var(--text) !important;
+  transition: all 0.15s ease;
+}
+.action-summary::-webkit-details-marker {
+  display: none !important;
+}
+.action-summary:hover {
+  border-color: var(--volt) !important;
+  color: var(--volt) !important;
+}
+.action-dropdown[open] .action-summary {
+  border-color: var(--volt) !important;
+  background: rgba(214, 255, 63, 0.12) !important;
+  color: var(--volt) !important;
+}
+.action-menu-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 195px;
+  background: #111116;
+  border: 1px solid var(--stroke-2);
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.95);
+  z-index: 1000;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: fadeInPopup 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes fadeInPopup {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.action-item {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: all 0.15s ease;
+}
+.action-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--volt);
+}
+
 /* --- Modal bukti pembayaran & posisi kurir --- */
 .customer-summary{background:var(--surface-2);border:1px solid var(--stroke-2);border-radius:var(--radius-sm);padding:12px;font-size:.84rem}
 #pay-img{background:#fff;display:block}
