@@ -432,41 +432,98 @@ var shipped = o.status === "shipped" || o.status === "delivered";
       .catch(function () { toast("Gagal mengakhiri sesi.", true); });
   });
 
-  /* mobile menu toggle */
-  var menuToggle = $("admin-menu-toggle");
-  var topbarMenu = $("topbar-menu");
-  if (menuToggle && topbarMenu) {
-    menuToggle.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var isOpen = topbarMenu.classList.toggle("open");
-      menuToggle.classList.toggle("active", isOpen);
-      menuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    });
-    topbarMenu.addEventListener("click", function (e) {
-      if (e.target.closest(".btn")) {
-        topbarMenu.classList.remove("open");
-        menuToggle.classList.remove("active");
-        menuToggle.setAttribute("aria-expanded", "false");
+  /* tab titles mapping */
+  var TAB_TITLES = {
+    orders: "Manajemen Pesanan",
+    products: "Katalog & Stok Produk",
+    map: "Peta Pengiriman Pesanan",
+    couriers: "Manajemen Kurir & Armada",
+    coupons: "Kupon Diskon & Promo",
+    referrals: "Program Referral",
+    flash: "Flash Sale Terjadwal",
+    drops: "Drop Rilis & Antrian",
+    members: "Member & Akun Pelanggan",
+    settings: "Pengaturan & Konfigurasi Toko"
+  };
+
+  /* switch tab function */
+  function switchTab(tabKey) {
+    if (!tabKey) return;
+    document.querySelectorAll("[data-tab]").forEach(function (el) {
+      if (el.dataset.tab === tabKey) {
+        el.classList.add("active");
+      } else {
+        el.classList.remove("active");
       }
     });
-    document.addEventListener("click", function (e) {
-      if (!e.target.closest(".topbar")) {
-        topbarMenu.classList.remove("open");
-        menuToggle.classList.remove("active");
-        menuToggle.setAttribute("aria-expanded", "false");
+
+    document.querySelectorAll(".panel").forEach(function (p) {
+      p.classList.remove("active");
+    });
+    var targetPanel = $("panel-" + tabKey);
+    if (targetPanel) targetPanel.classList.add("active");
+
+    var activeTitle = $("admin-active-title");
+    if (activeTitle && TAB_TITLES[tabKey]) {
+      activeTitle.textContent = TAB_TITLES[tabKey];
+    }
+
+    if (tabKey === "map") ensureMapAll();
+
+    // Close mobile drawer if open
+    closeMobileDrawer();
+
+    // Scroll active chip into view smoothly
+    var activeChip = document.querySelector(".pill-chip.active");
+    if (activeChip && activeChip.scrollIntoView) {
+      activeChip.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }
+
+  /* mobile sidebar drawer controls */
+  var sidebar = $("admin-sidebar");
+  var backdrop = $("sidebar-backdrop");
+  var menuToggle = $("admin-menu-toggle");
+  var closeBtn = $("sidebar-close-btn");
+
+  function openMobileDrawer() {
+    if (sidebar) sidebar.classList.add("open");
+    if (backdrop) backdrop.classList.add("show");
+    if (menuToggle) {
+      menuToggle.classList.add("active");
+      menuToggle.setAttribute("aria-expanded", "true");
+    }
+  }
+
+  function closeMobileDrawer() {
+    if (sidebar) sidebar.classList.remove("open");
+    if (backdrop) backdrop.classList.remove("show");
+    if (menuToggle) {
+      menuToggle.classList.remove("active");
+      menuToggle.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  if (menuToggle) {
+    menuToggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (sidebar && sidebar.classList.contains("open")) {
+        closeMobileDrawer();
+      } else {
+        openMobileDrawer();
       }
     });
   }
 
-  /* tabs */
-  document.querySelectorAll(".tab").forEach(function (tab) {
-    tab.addEventListener("click", function () {
-      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
-      document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
-      tab.classList.add("active");
-      $("panel-" + tab.dataset.tab).classList.add("active");
-      if (tab.dataset.tab === "map") ensureMapAll();
-    });
+  if (closeBtn) closeBtn.addEventListener("click", closeMobileDrawer);
+  if (backdrop) backdrop.addEventListener("click", closeMobileDrawer);
+
+  /* delegate all [data-tab] buttons across sidebar and pill chips */
+  document.addEventListener("click", function (e) {
+    var tabBtn = e.target.closest("[data-tab]");
+    if (tabBtn && tabBtn.dataset && tabBtn.dataset.tab) {
+      switchTab(tabBtn.dataset.tab);
+    }
   });
 
   /* orders: klik email → profil pelanggan */

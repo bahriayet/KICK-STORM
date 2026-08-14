@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=2026081504">
+<link rel="stylesheet" href="/css/admin.css?v=2026081505">
 </head>
 <body>
 
@@ -30,68 +30,126 @@
 </div>
 
 <div id="app-view">
-  <header class="topbar">
-    <div class="logo">KICK<span class="dot"></span>STORM <span class="badge-pill" style="margin-left:8px">Admin</span></div>
-    
-    <button class="admin-menu-toggle" id="admin-menu-toggle" type="button" aria-label="Buka Menu Admin" aria-expanded="false">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
-
-    <div class="topbar-right" id="topbar-menu">
-      <a class="btn btn-ghost btn-sm" href="/courier" target="_blank" rel="noopener" style="color:var(--volt);border-color:var(--volt)">🛵 Portal Kurir ↗</a>
-      <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">👁️ Lihat Toko ↗</a>
-      <button class="btn btn-ghost btn-sm" id="logout-all-btn" type="button" title="Akhiri semua sesi admin di semua perangkat">🔄 Logout Semua Sesi</button>
-      <button class="btn btn-danger btn-sm" id="logout-btn" type="button">🚪 Keluar</button>
-    </div>
-  </header>
-
-  <div class="stats-row" id="stats-row"></div>
-
-  <div class="top-products-card" id="top-products-card" hidden>
-    <div class="panel-head">
-      <div>
-        <p class="chart-title">Produk Paling Laku</p>
-        <p class="chart-sub">Revenue per produk (14 hari terakhir)</p>
+  <div class="admin-shell">
+    <!-- Desktop Sidebar & Mobile Off-canvas Drawer -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="logo-text">KICK<span class="dot"></span>STORM</div>
+          <span class="badge-pill">Control Room</span>
+        </div>
+        <button class="sidebar-close-btn" id="sidebar-close-btn" type="button" aria-label="Tutup Menu">✕</button>
       </div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Produk</th><th>Revenue</th><th>Terjual</th></tr>
-        </thead>
-        <tbody id="top-products-body"></tbody>
-      </table>
-    </div>
-  </div>
 
-  <div class="chart-card" id="chart-card" hidden>
-    <div class="chart-head">
-      <div>
-        <p class="chart-title">Penjualan 14 Hari Terakhir</p>
-        <p class="chart-sub">Pendapatan harian dari pesanan yang tidak dibatalkan.</p>
-      </div>
-      <div class="chart-total">
-        <span class="chart-total-label">Pendapatan 14 hari</span>
-        <strong id="chart-total">Rp 0</strong>
-      </div>
-    </div>
-    <canvas id="sales-chart" height="200" aria-label="Grafik pendapatan 14 hari terakhir"></canvas>
-  </div>
+      <div class="sidebar-scroll">
+        <div class="sidebar-group">
+          <span class="sidebar-group-title">MANAJEMEN UTAMA</span>
+          <nav class="sidebar-nav">
+            <button class="sidebar-btn active" data-tab="orders" type="button">
+              <span class="sb-icon">🛒</span>
+              <span class="sb-label">Pesanan</span>
+              <span class="tab-badge" id="sidebar-low-stock-badge" hidden>!</span>
+            </button>
+            <button class="sidebar-btn" data-tab="products" type="button">
+              <span class="sb-icon">👟</span>
+              <span class="sb-label">Produk & Stok</span>
+            </button>
+            <button class="sidebar-btn" data-tab="map" type="button">
+              <span class="sb-icon">🗺️</span>
+              <span class="sb-label">Peta Pesanan</span>
+            </button>
+            <button class="sidebar-btn" data-tab="couriers" type="button">
+              <span class="sb-icon">🛵</span>
+              <span class="sb-label">Kurir & Armada</span>
+            </button>
+          </nav>
+        </div>
 
-  <nav class="tabs" aria-label="Menu admin">
-    <button class="tab active" type="button" data-tab="orders">Pesanan <span id="tab-orders-count"></span> <span class="tab-badge" id="low-stock-badge" hidden>!</span></button>
-    <button class="tab" type="button" data-tab="products">Produk <span id="tab-products-count"></span></button>
-    <button class="tab" type="button" data-tab="coupons">Kupon <span id="tab-coupons-count"></span></button>
-    <button class="tab" type="button" data-tab="map">Peta Pesanan</button>
-    <button class="tab" type="button" data-tab="referrals">Referral <span id="tab-referrals-count"></span></button>
-    <button class="tab" type="button" data-tab="flash">Flash Sale</button>
-    <button class="tab" type="button" data-tab="drops">Drop</button>
-    <button class="tab" type="button" data-tab="couriers">Kurir</button>
-    <button class="tab" type="button" data-tab="members">Member</button>
-    <button class="tab" type="button" data-tab="settings">Pengaturan</button>
-  </nav>
+        <div class="sidebar-group">
+          <span class="sidebar-group-title">MARKETING & PROMO</span>
+          <nav class="sidebar-nav">
+            <button class="sidebar-btn" data-tab="coupons" type="button">
+              <span class="sb-icon">🎟️</span>
+              <span class="sb-label">Kupon Diskon</span>
+            </button>
+            <button class="sidebar-btn" data-tab="referrals" type="button">
+              <span class="sb-icon">🤝</span>
+              <span class="sb-label">Program Referral</span>
+            </button>
+            <button class="sidebar-btn" data-tab="flash" type="button">
+              <span class="sb-icon">⚡</span>
+              <span class="sb-label">Flash Sale</span>
+            </button>
+            <button class="sidebar-btn" data-tab="drops" type="button">
+              <span class="sb-icon">⏳</span>
+              <span class="sb-label">Drop & Antrian</span>
+            </button>
+          </nav>
+        </div>
+
+        <div class="sidebar-group">
+          <span class="sidebar-group-title">SISTEM & TOKO</span>
+          <nav class="sidebar-nav">
+            <button class="sidebar-btn" data-tab="members" type="button">
+              <span class="sb-icon">👥</span>
+              <span class="sb-label">Member & Akun</span>
+            </button>
+            <button class="sidebar-btn" data-tab="settings" type="button">
+              <span class="sb-icon">⚙️</span>
+              <span class="sb-label">Pengaturan Toko</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-links-row">
+          <a class="sidebar-link-btn" href="/courier" target="_blank" rel="noopener">🛵 Kurir ↗</a>
+          <a class="sidebar-link-btn" href="/" target="_blank" rel="noopener">👁️ Toko ↗</a>
+        </div>
+        <button class="sidebar-logout-all-btn" id="logout-all-btn" type="button">🔄 Logout Semua Sesi</button>
+        <button class="sidebar-logout-btn" id="logout-btn" type="button">🚪 Keluar</button>
+      </div>
+    </aside>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Main Content Panel -->
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div class="topbar-left">
+          <button class="admin-menu-toggle" id="admin-menu-toggle" type="button" aria-label="Buka Menu Admin" aria-expanded="false">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+          </button>
+          <div class="topbar-title-block">
+            <span class="topbar-kicker">KICKSTORM CONTROL</span>
+            <h1 class="topbar-heading" id="admin-active-title">Manajemen Pesanan</h1>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="live-pill"><span class="live-dot"></span> <span class="live-text">Live System</span></span>
+          <button class="btn btn-ghost btn-sm" type="button" id="refresh-btn" title="Muat ulang data terbaru">↻ Refresh</button>
+        </div>
+      </header>
+
+      <!-- 1-Row Pill Chips Navigation for Mobile & Quick Access -->
+      <nav class="admin-pill-bar" aria-label="Navigasi Menu Cepat">
+        <div class="pill-bar-track">
+          <button class="pill-chip active" data-tab="orders" type="button"><span class="chip-icon">🛒</span> Pesanan <span class="tab-badge" id="low-stock-badge" hidden>!</span></button>
+          <button class="pill-chip" data-tab="products" type="button"><span class="chip-icon">👟</span> Produk</button>
+          <button class="pill-chip" data-tab="coupons" type="button"><span class="chip-icon">🎟️</span> Kupon</button>
+          <button class="pill-chip" data-tab="map" type="button"><span class="chip-icon">🗺️</span> Peta</button>
+          <button class="pill-chip" data-tab="couriers" type="button"><span class="chip-icon">🛵</span> Kurir</button>
+          <button class="pill-chip" data-tab="flash" type="button"><span class="chip-icon">⚡</span> Flash Sale</button>
+          <button class="pill-chip" data-tab="referrals" type="button"><span class="chip-icon">🤝</span> Referral</button>
+          <button class="pill-chip" data-tab="drops" type="button"><span class="chip-icon">⏳</span> Drop</button>
+          <button class="pill-chip" data-tab="members" type="button"><span class="chip-icon">👥</span> Member</button>
+          <button class="pill-chip" data-tab="settings" type="button"><span class="chip-icon">⚙️</span> Pengaturan</button>
+        </div>
+      </nav>
 
   <section class="panel active" id="panel-orders">
     <div class="panel-head">
@@ -332,6 +390,8 @@
       <p class="form-msg" id="settings-msg" aria-live="polite"></p>
     </form>
   </section>
+    </main>
+  </div>
 </div>
 
 <div class="overlay" id="product-overlay">
@@ -512,6 +572,6 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="/js/admin.js?v=2026081504"></script>
+<script src="/js/admin.js?v=2026081505"></script>
 </body>
 </html>
