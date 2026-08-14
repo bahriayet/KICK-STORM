@@ -341,10 +341,63 @@ table .btn{padding:6px 12px;font-size:.75rem}
 /* --- Chip & badge baru --- */
 .chip-cod{background:rgba(245,197,66,.12);border-color:rgba(245,197,66,.4);color:#f5c542}
 .chip-queue{background:rgba(214,255,63,.1);border-color:rgba(214,255,63,.4);color:var(--volt)}
-.status-cell{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 
-/* --- Compact Order Action Dropdown --- */
-.orders-desktop-wrap { display: block; }
+.orders-desktop-wrap {
+  display: block;
+  max-height: 480px;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--stroke-2) transparent;
+}
+.orders-desktop-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 10;
+  box-shadow: 0 1px 0 var(--stroke-2);
+}
+
+.desktop-order-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.desktop-order-row:hover {
+  background: rgba(214, 255, 63, 0.05) !important;
+}
+.desktop-order-row td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.desktop-order-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.od-open-btn {
+  font-size: 0.76rem !important;
+  padding: 6px 12px !important;
+  border-radius: var(--radius-sm) !important;
+  font-weight: 600 !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--stroke-2) !important;
+  color: var(--text) !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease !important;
+  white-space: nowrap;
+}
+.od-open-btn:hover {
+  border-color: var(--volt) !important;
+  color: var(--volt) !important;
+  background: rgba(214, 255, 63, 0.12) !important;
+}
+
 .orders-mobile-wrap { display: none; }
 
 /* Order Detail Modal */
