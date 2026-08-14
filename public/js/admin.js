@@ -449,7 +449,7 @@ var shipped = o.status === "shipped" || o.status === "delivered";
   /* switch tab function */
   function switchTab(tabKey) {
     if (!tabKey) return;
-    document.querySelectorAll("[data-tab]").forEach(function (el) {
+    document.querySelectorAll(".tab").forEach(function (el) {
       if (el.dataset.tab === tabKey) {
         el.classList.add("active");
       } else {
@@ -463,67 +463,48 @@ var shipped = o.status === "shipped" || o.status === "delivered";
     var targetPanel = $("panel-" + tabKey);
     if (targetPanel) targetPanel.classList.add("active");
 
-    var activeTitle = $("admin-active-title");
-    if (activeTitle && TAB_TITLES[tabKey]) {
-      activeTitle.textContent = TAB_TITLES[tabKey];
-    }
-
     if (tabKey === "map") ensureMapAll();
 
-    // Close mobile drawer if open
-    closeMobileDrawer();
-
-    // Scroll active chip into view smoothly
-    var activeChip = document.querySelector(".pill-chip.active");
-    if (activeChip && activeChip.scrollIntoView) {
-      activeChip.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    // Scroll active tab into view smoothly on mobile
+    var activeTab = document.querySelector(".tab.active");
+    if (activeTab && activeTab.scrollIntoView) {
+      activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     }
   }
 
-  /* mobile sidebar drawer controls */
-  var sidebar = $("admin-sidebar");
-  var backdrop = $("sidebar-backdrop");
+  /* mobile menu toggle */
   var menuToggle = $("admin-menu-toggle");
-  var closeBtn = $("sidebar-close-btn");
-
-  function openMobileDrawer() {
-    if (sidebar) sidebar.classList.add("open");
-    if (backdrop) backdrop.classList.add("show");
-    if (menuToggle) {
-      menuToggle.classList.add("active");
-      menuToggle.setAttribute("aria-expanded", "true");
-    }
-  }
-
-  function closeMobileDrawer() {
-    if (sidebar) sidebar.classList.remove("open");
-    if (backdrop) backdrop.classList.remove("show");
-    if (menuToggle) {
-      menuToggle.classList.remove("active");
-      menuToggle.setAttribute("aria-expanded", "false");
-    }
-  }
-
-  if (menuToggle) {
+  var topbarMenu = $("topbar-menu");
+  if (menuToggle && topbarMenu) {
     menuToggle.addEventListener("click", function (e) {
       e.stopPropagation();
-      if (sidebar && sidebar.classList.contains("open")) {
-        closeMobileDrawer();
-      } else {
-        openMobileDrawer();
+      var isOpen = topbarMenu.classList.toggle("open");
+      menuToggle.classList.toggle("active", isOpen);
+      menuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+    topbarMenu.addEventListener("click", function (e) {
+      if (e.target.closest(".btn")) {
+        topbarMenu.classList.remove("open");
+        menuToggle.classList.remove("active");
+        menuToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".topbar")) {
+        topbarMenu.classList.remove("open");
+        menuToggle.classList.remove("active");
+        menuToggle.setAttribute("aria-expanded", "false");
       }
     });
   }
 
-  if (closeBtn) closeBtn.addEventListener("click", closeMobileDrawer);
-  if (backdrop) backdrop.addEventListener("click", closeMobileDrawer);
-
-  /* delegate all [data-tab] buttons across sidebar and pill chips */
-  document.addEventListener("click", function (e) {
-    var tabBtn = e.target.closest("[data-tab]");
-    if (tabBtn && tabBtn.dataset && tabBtn.dataset.tab) {
-      switchTab(tabBtn.dataset.tab);
-    }
+  /* tabs click event */
+  document.querySelectorAll(".tab").forEach(function (tabEl) {
+    tabEl.addEventListener("click", function () {
+      if (tabEl.dataset && tabEl.dataset.tab) {
+        switchTab(tabEl.dataset.tab);
+      }
+    });
   });
 
   /* orders: klik email → profil pelanggan */
