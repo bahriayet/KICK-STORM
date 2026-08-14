@@ -706,9 +706,14 @@ function animNum(el, end) {
 function renderCart() {
   var wrap = document.getElementById("cart-items");
   var badge = document.getElementById("cart-badge");
+  var mbbBadge = document.getElementById("mbb-cart-badge");
   var n = cartCount();
   badge.hidden = n === 0;
   badge.textContent = n > 99 ? "99+" : n;
+  if (mbbBadge) {
+    mbbBadge.hidden = n === 0;
+    mbbBadge.textContent = n > 99 ? "99+" : n;
+  }
 
   if (cart.length === 0) {
     wrap.innerHTML = '<p class="cart-empty">Keranjang masih kosong.<br>Jangan biarkan badai lewat.</p>';
@@ -859,6 +864,8 @@ document.getElementById("order-referral").addEventListener("keydown", function (
 });
 
 document.getElementById("cart-open").addEventListener("click", openCart);
+var mbbCart = document.getElementById("mbb-cart-btn");
+if (mbbCart) mbbCart.addEventListener("click", openCart);
 document.getElementById("cart-open-hero").addEventListener("click", openCart);
 document.getElementById("cart-open-pin").addEventListener("click", openCart);
 document.getElementById("cart-close").addEventListener("click", closeCart);

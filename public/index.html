@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>KICKSTORM — Sneaker Premium Edisi Volt</title>
 <meta name="description" content="KICKSTORM: sneaker premium edisi terbatas. Kenakan badai, jalani kecepatan.">
 <meta property="og:title" content="KICKSTORM — Sneaker Premium Edisi Volt">
@@ -503,9 +505,34 @@
   </div>
   <div class="footer-base">
     <span>© 2026 KICKSTORM. Semua hak dilindungi.</span>
-    <span>Dibuat dengan badai di Jakarta.</span>
-  </div>
 </footer>
+
+<!-- Mobile Bottom Navigation Bar (Thumb Zone) -->
+<nav class="mobile-bottom-bar" id="mobile-bottom-bar" aria-label="Navigasi Cepat Mobile">
+  <a href="#hero" class="mbb-item" aria-label="Beranda">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+    <span>Home</span>
+  </a>
+  <a href="#koleksi" class="mbb-item" aria-label="Koleksi Sneaker">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+    <span>Koleksi</span>
+  </a>
+  <a href="#forge" class="mbb-item" aria-label="Kustomisasi 3D Forge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+    <span>3D Forge</span>
+  </a>
+  <button class="mbb-item mbb-cart-trigger" id="mbb-cart-btn" type="button" aria-label="Buka Keranjang">
+    <div class="mbb-icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+      <span class="mbb-badge" id="mbb-cart-badge" hidden>0</span>
+    </div>
+    <span>Keranjang</span>
+  </button>
+  <a href="#lacak" class="mbb-item" aria-label="Lacak Pesanan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+    <span>Lacak</span>
+  </a>
+</nav>
 
 <script src="/vendor/gsap.min.js"></script>
 <script src="/vendor/ScrollTrigger.min.js"></script>
