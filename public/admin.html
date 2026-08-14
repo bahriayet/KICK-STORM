@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KICKSTORM — Admin Panel</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0A0A'/%3E%3Cpath d='M6 10 L14 22 L26 8' stroke='%23D6FF3F' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+<div id="login-view">
+  <div class="login-card">
+    <div class="login-logo">KICK<span class="dot"></span>STORM</div>
+    <p class="login-kicker">Control Room</p>
+    <h1 class="login-title">Admin Panel</h1>
+    <p class="login-note">Akses terbatas — hanya untuk pengelola toko.</p>
+    <form class="login-form" id="login-form">
+      <input class="field" type="password" id="login-password" placeholder="Password admin" required autocomplete="current-password">
+      <button class="btn btn-primary" type="submit" id="login-btn">Masuk</button>
+    </form>
+    <p class="login-msg" id="login-msg" aria-live="polite"></p>
+    <div class="login-hint">Password admin diatur lewat env <code>ADMIN_PASSWORD</code>.<br>Lihat <code>.env.example</code> — di development default: <code>kickstorm-admin</code>.</div>
+  </div>
+</div>
+
+<div id="app-view">
+  <header class="topbar">
+    <div class="logo">KICK<span class="dot"></span>STORM <span class="badge-pill" style="margin-left:8px">Admin</span></div>
+    <div class="topbar-right">
+      <a class="btn btn-ghost btn-sm" href="/courier" target="_blank" rel="noopener" style="color:var(--volt);border-color:var(--volt)">🛵 Portal Kurir ↗</a>
+      <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">Lihat Toko ↗</a>
+      <button class="btn btn-ghost btn-sm" id="logout-all-btn" type="button" title="Akhiri semua sesi admin di semua perangkat">Logout Semua Sesi</button>
+      <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Keluar</button>
+    </div>
+  </header>
+
+  <div class="stats-row" id="stats-row"></div>
+
+  <div class="top-products-card" id="top-products-card" hidden>
+    <div class="panel-head">
+      <div>
+        <p class="chart-title">Produk Paling Laku</p>
+        <p class="chart-sub">Revenue per produk (14 hari terakhir)</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Produk</th><th>Revenue</th><th>Terjual</th></tr>
+        </thead>
+        <tbody id="top-products-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="chart-card" id="chart-card" hidden>
+    <div class="chart-head">
+      <div>
+        <p class="chart-title">Penjualan 14 Hari Terakhir</p>
+        <p class="chart-sub">Pendapatan harian dari pesanan yang tidak dibatalkan.</p>
+      </div>
+      <div class="chart-total">
+        <span class="chart-total-label">Pendapatan 14 hari</span>
+        <strong id="chart-total">Rp 0</strong>
+      </div>
+    </div>
+    <canvas id="sales-chart" height="200" aria-label="Grafik pendapatan 14 hari terakhir"></canvas>
+  </div>
+
+  <nav class="tabs" aria-label="Menu admin">
+    <button class="tab active" type="button" data-tab="orders">Pesanan <span id="tab-orders-count"></span> <span class="tab-badge" id="low-stock-badge" hidden>!</span></button>
+    <button class="tab" type="button" data-tab="products">Produk <span id="tab-products-count"></span></button>
+    <button class="tab" type="button" data-tab="coupons">Kupon <span id="tab-coupons-count"></span></button>
+    <button class="tab" type="button" data-tab="map">Peta Pesanan</button>
+    <button class="tab" type="button" data-tab="referrals">Referral <span id="tab-referrals-count"></span></button>
+    <button class="tab" type="button" data-tab="flash">Flash Sale</button>
+    <button class="tab" type="button" data-tab="drops">Drop</button>
+    <button class="tab" type="button" data-tab="couriers">Kurir</button>
+    <button class="tab" type="button" data-tab="members">Member</button>
+    <button class="tab" type="button" data-tab="settings">Pengaturan</button>
+  </nav>
+
+  <section class="panel active" id="panel-orders">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Kelola status pesanan dari pelanggan.</p>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost btn-sm" type="button" id="export-btn">⬇ Ekspor CSV</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="refresh-btn">↻ Muat Ulang</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Pesanan</th><th>Pelanggan</th><th>Item</th><th>Total</th><th>Catatan</th><th>Status</th></tr>
+        </thead>
+        <tbody id="orders-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-products">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Atur katalog — tambah, ubah, atau hapus produk.</p>
+      <button class="btn btn-primary btn-sm" type="button" id="add-product-btn">+ Tambah Produk</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Nama</th><th>Badge</th><th>Harga</th><th>Variant</th><th>Stok</th><th>Terjual</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="products-body"></tbody>
+      </table>
+    </div>
+    <div class="waitlist-card" id="waitlist-card" hidden>
+      <div class="panel-head" style="margin-top:20px">
+        <div>
+          <p class="chart-title">Restock Waitlist</p>
+          <p class="chart-sub">Pelanggan yang minta kabar saat stok masuk.</p>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost btn-sm" type="button" id="waitlist-email-all">✉ Salin Email &amp; Tandai</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="waitlist-refresh">↻</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Produk</th><th>Email</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="waitlist-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-coupons">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Kelola kode voucher — diskon persen atau nominal.</p>
+      <button class="btn btn-primary btn-sm" type="button" id="add-coupon-btn">+ Tambah Kupon</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Kode</th><th>Nilai</th><th>Min. Belanja</th><th>Pemakaian</th><th>Kedaluwarsa</th><th>Status</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="coupons-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-map">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Semua pesanan dengan lokasi peta — warna per status.</p>
+    </div>
+    <div class="map-all-wrap" id="map-all-wrap">
+      <div id="map-all" style="width:100%;height:520px;border-radius:12px;background:#e8e8e4"></div>
+      <p class="muted" id="map-all-hint" style="font-size:.78rem;margin-top:8px"></p>
+      <div class="map-legend" id="map-legend" hidden>
+        <span class="legend-dot" style="background:#f5f5f2"></span> Menunggu
+        <span class="legend-dot" style="background:#f5c542"></span> Dibayar
+        <span class="legend-dot" style="background:#5aa9ff"></span> Dikirim
+        <span class="legend-dot" style="background:#54d98c"></span> Selesai
+        <span class="legend-dot" style="background:#ff5a4e"></span> Dibatalkan
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-referrals">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Kode referensi teman — pemilik dapat reward, pengguna baru dapat diskon 5%.</p>
+      <button class="btn btn-primary btn-sm" type="button" id="add-referral-btn">+ Buat Kode</button>
+    </div>
+    <div class="inline-form" id="referral-form" hidden>
+      <input class="field" id="r-name" placeholder="Nama pemilik kode" maxlength="80">
+      <input class="field" id="r-email" type="email" placeholder="Email pemilik" maxlength="80">
+      <input class="field" id="r-code" placeholder="Kode (kosong = acak)" maxlength="30" style="text-transform:uppercase">
+      <input class="field" id="r-max" type="number" min="1" max="100000" placeholder="Kuota pemakaian" value="1" style="max-width:130px">
+      <button class="btn btn-primary btn-sm" type="button" id="r-save">Simpan</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="r-cancel">Batal</button>
+      <p class="form-msg" id="r-msg" aria-live="polite"></p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Kode</th><th>Pemilik</th><th>Kuota</th><th>Terpakai</th><th>Status</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="referrals-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-flash">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Diskon otomatis semua produk di jam tertentu (di luar itu kembali normal).</p>
+      <button class="btn btn-primary btn-sm" type="button" id="add-flash-btn">+ Buat Flash Sale</button>
+    </div>
+    <div class="inline-form" id="flash-form" hidden>
+      <input class="field" id="f-name" placeholder="Nama, mis. Flash Lunch 12.00-13.00" maxlength="80">
+      <input class="field" id="f-pct" type="number" min="1" max="90" placeholder="Diskon %" style="max-width:110px">
+      <input class="field" id="f-start" type="datetime-local" aria-label="Mulai">
+      <input class="field" id="f-end" type="datetime-local" aria-label="Selesai">
+      <button class="btn btn-primary btn-sm" type="button" id="f-save">Simpan</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="f-cancel">Batal</button>
+      <p class="form-msg" id="f-msg" aria-live="polite"></p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Nama</th><th>Diskon</th><th>Mulai</th><th>Selesai</th><th>Status</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="flash-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-drops">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Jadwalkan drop — countdown muncul di halaman toko. Saat mode antrian aktif: checkout ditutup sebelum rilis, lalu setiap pesanan dapat nomor antrean.</p>
+      <button class="btn btn-primary btn-sm" type="button" id="add-drop-btn">+ Jadwalkan Drop</button>
+    </div>
+    <div class="inline-form" id="drop-form" hidden>
+      <input class="field" id="d-name" placeholder="Nama drop, mis. Drop 02 — Volt II" maxlength="80">
+      <select class="field" id="d-product" aria-label="Produk terkait"><option value="">Tanpa produk</option></select>
+      <input class="field" id="d-release" type="datetime-local" aria-label="Waktu rilis">
+      <label class="cod-toggle" style="margin:0"><input type="checkbox" id="d-queue" checked> Mode antrian</label>
+      <button class="btn btn-primary btn-sm" type="button" id="d-save">Simpan</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="d-cancel">Batal</button>
+      <p class="form-msg" id="d-msg" aria-live="polite"></p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Nama</th><th>Produk</th><th>Rilis</th><th>Status</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="drops-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-couriers">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Kurir pengiriman — ongkir dihitung per kurir, COD hanya tersedia dalam radius yang kamu tentukan.</p>
+      <button class="btn btn-primary btn-sm" type="button" id="add-courier-btn">+ Tambah Kurir</button>
+    </div>
+    <div class="inline-form" id="courier-form" hidden>
+      <input class="field" id="k-name" placeholder="Nama kurir, mis. JNE Reguler" maxlength="80">
+      <input class="field" id="k-cod" type="number" min="0" placeholder="COD s.d. km (0 = non-COD)" style="max-width:150px">
+      <textarea class="field" id="k-tiers" rows="3" style="min-width:260px" placeholder='Tier ongkir JSON, mis. [{"max":5,"cost":15000},{"max":10,"cost":25000}]'></textarea>
+      <button class="btn btn-primary btn-sm" type="button" id="k-save">Simpan</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="k-cancel">Batal</button>
+      <p class="form-msg" id="k-msg" aria-live="polite"></p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Kurir</th><th>Tier Ongkir</th><th>COD</th><th>Status</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="couriers-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-members">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Member Storm Club — poin dari belanja, level otomatis, dan kupon ulang tahun.</p>
+      <button class="btn btn-ghost btn-sm" type="button" id="copy-subscribers-btn">✉ Salin Email Subscriber</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Nama</th><th>Email</th><th>Poin</th><th>Level</th><th>Pesanan</th><th>Ulang Tahun</th></tr>
+        </thead>
+        <tbody id="members-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-settings">
+    <div class="panel-head">
+      <p class="muted" style="font-size:.82rem">Lokasi toko &amp; ongkir — dipakai untuk hitung jarak, radius, dan estimasi ongkir.</p>
+      <button class="btn btn-primary btn-sm" type="button" id="settings-save">Simpan Pengaturan</button>
+    </div>
+    <form class="settings-form" id="settings-form">
+      <div class="form-grid">
+        <div class="form-field full">
+          <label for="s-name">Nama Toko</label>
+          <input class="field" id="s-name" maxlength="80" placeholder="KICKSTORM Jakarta">
+        </div>
+        <div class="form-field">
+          <label for="s-lat">Latitude Toko</label>
+          <input class="field" id="s-lat" type="number" step="any" placeholder="-6.2087634">
+        </div>
+        <div class="form-field">
+          <label for="s-lng">Longitude Toko</label>
+          <input class="field" id="s-lng" type="number" step="any" placeholder="106.845599">
+        </div>
+        <div class="form-field">
+          <label for="s-free">Gratis Ongkir Mulai (Rp, 0 = nonaktif)</label>
+          <input class="field" id="s-free" type="number" min="0" placeholder="1500000">
+        </div>
+        <div class="form-field">
+          <label for="s-max">Radius Kirim (km, 0 = tanpa batas)</label>
+          <input class="field" id="s-max" type="number" min="0" placeholder="25">
+        </div>
+        <div class="form-field full">
+          <label for="s-wa">Nomor WhatsApp Admin (untuk konfirmasi order, format 62...)</label>
+          <input class="field" id="s-wa" placeholder="6281234567890">
+        </div>
+        <div class="form-field full">
+          <label class="cod-toggle" style="margin:0">
+            <input type="checkbox" id="s-payflow">
+            <span>Alur pembayaran: pelanggan wajib upload bukti transfer (status Menunggu Pembayaran)</span>
+          </label>
+        </div>
+      </div>
+      <p class="muted" style="font-size:.78rem;margin-top:12px">Tier Ongkir (km maks → biaya). Setiap baris: jarak maks &amp; biaya.</p>
+      <div id="tier-rows" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+      <button class="btn btn-ghost btn-sm" type="button" id="tier-add" style="margin-top:8px">+ Tambah Tier</button>
+      <p class="form-msg" id="settings-msg" aria-live="polite"></p>
+    </form>
+  </section>
+</div>
+
+<div class="overlay" id="product-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="modal-title" id="product-modal-title">Tambah Produk</h2>
+      <button class="modal-close" type="button" id="product-modal-close" aria-label="Tutup">✕</button>
+    </div>
+    <form id="product-form">
+      <input type="hidden" id="p-id">
+      <div class="form-grid">
+        <div class="form-field full">
+          <label for="p-name">Nama Produk *</label>
+          <input class="field" id="p-name" required maxlength="80" placeholder="Contoh: Storm Zero — Red 07">
+        </div>
+        <div class="form-field full">
+          <label for="p-tag">Tag / Kategori</label>
+          <input class="field" id="p-tag" maxlength="120" placeholder="Lari / Jalan / Sehari-hari">
+        </div>
+        <div class="form-field">
+          <label for="p-badge">Badge</label>
+          <input class="field" id="p-badge" maxlength="40" placeholder="Best Seller">
+        </div>
+        <div class="form-field">
+          <label for="p-variant">Variant Warna</label>
+          <select class="field" id="p-variant">
+            <option value="mono">Mono (Putih)</option>
+            <option value="void">Void (Hitam)</option>
+            <option value="volt">Volt (Volt Lime)</option>
+            <option value="ghost">Ghost (Cream)</option>
+            <option value="dark">Dark (Abu Gelap)</option>
+            <option value="cream">Cream (Krem)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="p-price">Harga (Rp) *</label>
+          <input class="field" id="p-price" type="number" min="0" step="1" required placeholder="1500000">
+        </div>
+        <div class="form-field">
+          <label for="p-stock">Stok *</label>
+          <input class="field" id="p-stock" type="number" min="0" step="1" required placeholder="0">
+        </div>
+        <div class="form-field">
+          <label for="p-sold">Terjual</label>
+          <input class="field" id="p-sold" type="number" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost btn-sm" type="button" id="product-cancel">Batal</button>
+        <button class="btn btn-primary btn-sm" type="submit" id="product-save">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="coupon-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="modal-title" id="coupon-modal-title">Tambah Kupon</h2>
+      <button class="modal-close" type="button" id="coupon-modal-close" aria-label="Tutup">✕</button>
+    </div>
+    <form id="coupon-form">
+      <input type="hidden" id="c-code">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="c-code-input">Kode *</label>
+          <input class="field" id="c-code-input" required maxlength="30" placeholder="STORM10" pattern="[A-Za-z0-9_-]{3,30}">
+        </div>
+        <div class="form-field">
+          <label for="c-type">Tipe *</label>
+          <select class="field" id="c-type">
+            <option value="percent">Persen (%)</option>
+            <option value="fixed">Nominal (Rp)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="c-value">Nilai *</label>
+          <input class="field" id="c-value" type="number" min="1" step="1" required>
+        </div>
+        <div class="form-field">
+          <label for="c-min">Min. Belanja (Rp)</label>
+          <input class="field" id="c-min" type="number" min="0" step="1" value="0">
+        </div>
+        <div class="form-field">
+          <label for="c-max">Kuota Pemakaian</label>
+          <input class="field" id="c-max" type="number" min="0" step="1" value="0">
+        </div>
+        <div class="form-field">
+          <label for="c-expires">Kedaluwarsa (opsional)</label>
+          <input class="field" id="c-expires" type="date">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost btn-sm" type="button" id="coupon-cancel">Batal</button>
+        <button class="btn btn-primary btn-sm" type="submit" id="coupon-save">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="customer-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="modal-title">Profil Pelanggan</h2>
+      <button class="modal-close" type="button" id="customer-close" aria-label="Tutup">✕</button>
+    </div>
+    <div class="customer-summary">
+      <p class="muted" style="font-size:.78rem">Email</p>
+      <p id="customer-email" style="word-break:break-all"></p>
+      <div class="totals" style="display:flex;gap:24px;margin-top:12px">
+        <div><span class="muted" style="font-size:.72rem">Total Pesanan</span><br><strong id="customer-count">0</strong></div>
+        <div><span class="muted" style="font-size:.72rem">Total Belanja</span><br><strong id="customer-total" style="color:var(--volt)">Rp 0</strong></div>
+      </div>
+    </div>
+    <div id="customer-orders" style="margin-top:14px;display:flex;flex-direction:column;gap:10px;max-height:46vh;overflow-y:auto"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" type="button" id="customer-cancel">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="location-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="modal-title">Lokasi Pesanan</h2>
+      <button class="modal-close" type="button" id="location-close" aria-label="Tutup">✕</button>
+    </div>
+    <div class="customer-summary">
+      <p class="muted" style="font-size:.78rem">Alamat pengiriman</p>
+      <p id="location-address" style="word-break:break-all"></p>
+    </div>
+    <div id="location-map" style="width:100%;height:340px;border-radius:12px;margin-top:14px;background:#e8e8e4"></div>
+    <p class="muted" id="location-coords" style="font-size:.72rem;margin-top:8px"></p>
+    <div class="modal-foot">
+      <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" id="location-route" href="#" hidden>Rute Kurir &rarr;</a>
+      <button class="btn btn-ghost btn-sm" type="button" id="location-cancel">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="pay-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="modal-title">Bukti Pembayaran <span class="badge-pill badge-off" id="pay-order-tag"></span></h2>
+      <button class="modal-close" type="button" id="pay-close" aria-label="Tutup">✕</button>
+    </div>
+    <div class="customer-summary">
+      <p class="muted" style="font-size:.78rem">Catatan pelanggan</p>
+      <p id="pay-note-view" style="word-break:break-all"></p>
+    </div>
+    <img id="pay-img" alt="Bukti transfer" style="max-width:100%;max-height:46vh;border-radius:12px;margin-top:12px;object-fit:contain;background:#fff">
+    <div class="modal-foot">
+      <button class="btn btn-danger btn-sm" type="button" id="pay-reject">Tolak &amp; Batalkan</button>
+      <button class="btn btn-primary btn-sm" type="button" id="pay-verify">✓ Verifikasi</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="courier-loc-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="modal-title">Posisi Kurir — Pesanan <span id="cl-order-tag"></span></h2>
+      <button class="modal-close" type="button" id="cl-close" aria-label="Tutup">✕</button>
+    </div>
+    <div class="customer-summary">
+      <p class="muted" style="font-size:.78rem">Geser pin ke posisi terbaru kurir — pelanggan melihatnya di halaman Lacak.</p>
+      <p id="cl-coords" style="font-size:.74rem;margin-top:6px"></p>
+    </div>
+    <div id="courier-loc-map" style="width:100%;height:340px;border-radius:12px;margin-top:12px;background:#e8e8e4"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" type="button" id="cl-cancel">Tutup</button>
+      <button class="btn btn-primary btn-sm" type="button" id="cl-save">Simpan Posisi</button>
+    </div>
+  </div>
+</div>
+
+<div class="print-only" id="print-label" aria-hidden="true"></div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>
