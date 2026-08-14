@@ -89,6 +89,11 @@ async function initTurso() {
       expires_at TEXT NOT NULL
     );`,
 
+    `CREATE TABLE IF NOT EXISTS admin_tokens_revoked (
+      token_jti TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );`,
+
     `CREATE TABLE IF NOT EXISTS order_status_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,

@@ -183,9 +183,10 @@ const insertToken = db.prepare("INSERT INTO admin_tokens (token_hash, created_at
 const deleteToken = db.prepare("DELETE FROM admin_tokens WHERE token_hash = ?");
 
 function createAdminToken() {
-  const raw = crypto.randomBytes(24).toString("hex");
-  const exp = Date.now() + ADMIN_TOKEN_TTL_HOURS * 3600 * 1000;
-  const payload = Buffer.from(JSON.stringify({ r: "admin", exp, id: raw, iat: Date.now() })).toString("base64url");
+  const iat = Math.floor(Date.now() / 1000);
+  const exp = iat + (ADMIN_TOKEN_TTL_HOURS * 3600);
+  const jti = crypto.randomBytes(16).toString("hex");
+  const payload = Buffer.from(JSON.stringify({ role: "admin", exp, iat, jti })).toString("base64url");
   const sig = crypto.createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("base64url");
   return `${payload}.${sig}`;
 }
@@ -193,34 +194,42 @@ function createAdminToken() {
 function verifyAdminToken(tokenStr) {
   if (!tokenStr || typeof tokenStr !== "string") return false;
   const h = hashToken(tokenStr);
-  const inDb = findToken.get(h);
-  if (inDb) return true;
 
-  // Check if token table exists in DB (or if expired in DB)
-  const expiredRow = db.prepare("SELECT token_hash FROM admin_tokens WHERE token_hash = ?").get(h);
-  if (expiredRow) return false;
+  // 1. Check active database token
+  const dbRow = findToken.get(h);
+  if (dbRow) return true;
 
-  // Serverless cold-start fallback: verify HMAC signature when DB was reset
-  const tokenCount = db.prepare("SELECT COUNT(*) AS n FROM admin_tokens").get().n;
-  const s = getSettings();
-  const revokedBefore = Number(s.session_epoch) || 0;
+  // 2. If token is in database but expired, reject immediately
+  const inDb = db.prepare("SELECT token_hash FROM admin_tokens WHERE token_hash = ?").get(h);
+  if (inDb) return false;
 
-  if (tokenCount === 0 && revokedBefore === 0) {
-    const parts = tokenStr.split(".");
-    if (parts.length === 2) {
-      const [payload, sig] = parts;
-      const expectedSig = crypto.createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("base64url");
-      if (sig === expectedSig) {
-        try {
-          const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-          if (data.r === "admin" && data.exp > Date.now()) {
-            try { insertToken.run(h, `+${ADMIN_TOKEN_TTL_HOURS} hours`); } catch (e) {}
-            return true;
+  // 3. Verify HMAC token (resilient across serverless instances and cold starts)
+  const parts = tokenStr.split(".");
+  if (parts.length === 2) {
+    const [payload, sig] = parts;
+    const expectedSig = crypto.createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("base64url");
+    if (sig.length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
+      try {
+        const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (data.role === "admin" && data.exp > nowSec) {
+          // Check if individually revoked via /api/admin/logout
+          if (data.jti) {
+            const revoked = db.prepare("SELECT token_jti FROM admin_tokens_revoked WHERE token_jti = ?").get(data.jti);
+            if (revoked) return false;
           }
-        } catch (e) {}
-      }
+          // Check if all sessions were revoked via /api/admin/logout-all
+          const s = getSettings();
+          const revokedBefore = Number(s.session_epoch) || 0;
+          if (data.iat && data.iat <= revokedBefore) return false;
+
+          return true;
+        }
+      } catch (e) {}
     }
+    return false;
   }
+
   return false;
 }
 
@@ -874,13 +883,22 @@ app.post("/api/admin/login", (req, res) => {
 
 app.post("/api/admin/logout", requireAdmin, (req, res) => {
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const parts = token.split(".");
+  if (parts.length === 2) {
+    try {
+      const data = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+      if (data.jti) {
+        db.prepare("INSERT OR REPLACE INTO admin_tokens_revoked (token_jti) VALUES (?)").run(data.jti);
+      }
+    } catch (e) {}
+  }
   deleteToken.run(hashToken(token));
   res.json({ ok: true });
 });
 
 app.post("/api/admin/logout-all", requireAdmin, (req, res) => {
   db.prepare("DELETE FROM admin_tokens").run();
-  db.prepare("INSERT INTO settings (key, value) VALUES ('session_epoch', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(Date.now()));
+  db.prepare("INSERT INTO settings (key, value) VALUES ('session_epoch', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(Math.floor(Date.now() / 1000)));
   res.json({ ok: true, message: "Semua sesi admin diakhiri." });
 });
 
