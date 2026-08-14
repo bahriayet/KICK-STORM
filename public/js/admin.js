@@ -313,7 +313,7 @@
           actionDropdown +
           '</div>';
 
-        return "<tr>" +
+          return "<tr>" +
           '<td class="mono" style="white-space:nowrap"><strong>#' + o.id + '</strong><br><span class="muted" style="font-size:.74rem">' + tgl + "</span></td>" +
           '<td><div class="customer-cell">' + avatar(o.customer_name) +
           '<div><div class="c-name">' + escapeHtml(o.customer_name) + '</div><span class="muted email-click" style="font-size:.74rem;cursor:pointer" data-email="' + escapeHtml(o.email) + '" title="Lihat profil pelanggan">' + escapeHtml(o.email) + "</span></div></div></td>" +
@@ -324,6 +324,40 @@
           "</tr>" +
           timeline;
       }).join("");
+
+      /* Render Compact Mobile Order Cards (takes 70% less space on mobile!) */
+      var mWrap = $("orders-mobile-wrap");
+      if (mWrap) {
+        if (orders.length === 0) {
+          mWrap.innerHTML = '<div class="empty-state">Belum ada pesanan masuk.</div>';
+        } else {
+          mWrap.innerHTML = orders.map(function (o) {
+            var tgl = new Date(o.created_at.replace(" ", "T")).toLocaleString("id-ID", {
+              day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+            });
+            var itemSummary = (o.items && o.items.length > 0)
+              ? (o.items[0].product_name + (o.items.length > 1 ? " (+" + (o.items.length - 1) + ")" : ""))
+              : "1 item";
+            return '<div class="order-card" data-od-id="' + o.id + '">' +
+              '<div class="oc-top">' +
+                '<div class="oc-id-date">' +
+                  '<strong class="oc-id">#' + o.id + '</strong>' +
+                  '<span class="oc-date">' + tgl + '</span>' +
+                '</div>' +
+                '<span class="badge-status">' + (STATUS_LABELS[o.status] || o.status) + '</span>' +
+              '</div>' +
+              '<div class="oc-mid">' +
+                '<div class="oc-customer">' +
+                  '<span class="oc-name">' + escapeHtml(o.customer_name) + '</span>' +
+                  '<span class="oc-items-count">' + escapeHtml(itemSummary) + ' • <strong class="oc-price">' + rupiah(o.total) + '</strong></span>' +
+                '</div>' +
+                '<span class="oc-action-pill">Kelola &rarr;</span>' +
+              '</div>' +
+            '</div>';
+          }).join("");
+        }
+      }
+
       refreshMap();
     });
   }
@@ -574,6 +608,198 @@
     var pr = e.target.closest("[data-print-id]");
     if (pr) printLabel(Number(pr.dataset.printId));
   });
+
+  /* ---- Order Detail Modal (for Mobile & Quick Action) ---- */
+  var odOverlay = $("order-detail-overlay");
+  var activeOdOrder = null;
+
+  function openOrderDetailModal(id) {
+    var o = allOrders.find(function (x) { return x.id === Number(id); });
+    if (!o) return;
+    activeOdOrder = o;
+
+    $("od-title").textContent = "Pesanan #" + o.id;
+    $("od-status-badge").textContent = STATUS_LABELS[o.status] || o.status;
+    $("od-name").textContent = o.customer_name;
+    $("od-email").textContent = o.email;
+    $("od-addr").textContent = o.address || "-";
+
+    var notesWrap = $("od-notes-wrap");
+    if (o.notes && o.notes.trim()) {
+      notesWrap.hidden = false;
+      $("od-notes").textContent = o.notes;
+    } else {
+      notesWrap.hidden = true;
+    }
+
+    var itemsHtml = (o.items || []).map(function (i) { return itemLabel(i); }).join("<br>");
+    $("od-items").innerHTML = itemsHtml;
+    $("od-total").textContent = rupiah(o.total);
+
+    var extraChips = (o.shipping > 0 ? '<span class="chip">Ongkir ' + rupiah(o.shipping) + "</span>" : "") +
+      (o.referral_code ? '<span class="chip chip-referral">Referral ' + escapeHtml(o.referral_code) + "</span>" : "") +
+      (o.flash_sale_id ? '<span class="chip chip-flash">Flash Sale</span>' : "") +
+      (o.payment_method === "cod" ? '<span class="chip chip-cod">COD</span>' : "") +
+      (o.queue_no ? '<span class="chip chip-queue">Antrean #' + o.queue_no + "</span>" : "");
+    $("od-chips").innerHTML = extraChips;
+
+    // Status select
+    var statusSelect = $("od-status-select");
+    statusSelect.innerHTML = Object.keys(STATUS_LABELS).map(function (k) {
+      return '<option value="' + k + '"' + (k === o.status ? " selected" : "") + ">" + STATUS_LABELS[k] + "</option>";
+    }).join("");
+
+    // Resi
+    $("od-resi-input").value = o.tracking_number || "";
+
+    // Maps & Routes URLs
+    var navUrl = o.maps_url && o.maps_url.trim() ? o.maps_url.trim() : (o.lat && o.lng ? ("https://www.google.com/maps?q=" + o.lat + "," + o.lng) : ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(o.address || "Jakarta")));
+    $("od-loc-link").href = navUrl;
+
+    var origin = (storeCfg && storeCfg.lat) ? (storeCfg.lat + "," + storeCfg.lng) : "-6.2087634,106.845599";
+    var dest = (o.lat && o.lng) ? (o.lat + "," + o.lng) : (o.maps_url || encodeURIComponent(o.address || "Jakarta"));
+    var routeUrl = "https://www.google.com/maps/dir/?api=1&origin=" + origin + "&destination=" + dest + "&travelmode=driving";
+    $("od-route-link").href = routeUrl;
+
+    // WA Kurir
+    var waCourierText = "Halo Kurir KICKSTORM, tugas antar pesanan #" + o.id + ":\n" +
+      "👤 Pelanggan: " + o.customer_name + "\n" +
+      "📍 Alamat: " + o.address + "\n" +
+      "💰 Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
+      "🚀 Navigasi Rute: " + (o.maps_url || routeUrl);
+    $("od-wa-link").href = "https://wa.me/?text=" + encodeURIComponent(waCourierText);
+
+    // Radar / Posisi Kurir
+    var radarLink = $("od-radar-link");
+    if (o.courier_share_url) {
+      radarLink.hidden = false;
+      radarLink.href = o.courier_share_url;
+    } else if (o.courier_lat && o.courier_lng) {
+      radarLink.hidden = false;
+      radarLink.href = "https://www.google.com/maps?q=" + o.courier_lat + "," + o.courier_lng;
+    } else {
+      radarLink.hidden = true;
+    }
+
+    // Set Lokasi Kurir
+    $("od-cloc-btn").textContent = o.courier_lat ? "🛵 Ubah Posisi Kurir" : "🛵 Set Posisi Kurir";
+
+    // Bukti Bayar
+    var payBtn = $("od-pay-btn");
+    if (o.payment_proof) {
+      payBtn.hidden = false;
+    } else {
+      payBtn.hidden = true;
+    }
+
+    // Timeline
+    var timelineWrap = $("od-timeline-wrap");
+    if (o.history && o.history.length > 0) {
+      timelineWrap.hidden = false;
+      $("od-timeline-list").innerHTML = o.history.map(function (h, i) {
+        var when = new Date(h.changed_at.replace(" ", "T")).toLocaleString("id-ID", {
+          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+        });
+        return '<div class="tl-step' + (i === o.history.length - 1 ? " current" : "") + '">' +
+          '<span class="tl-dot"></span>' +
+          '<div><strong>' + (STATUS_LABELS[h.to_status] || h.to_status) + "</strong>" +
+          '<span class="muted" style="font-size:.74rem;display:block">' + when + "</span></div></div>";
+      }).join('<span class="tl-arrow">\u2192</span>');
+    } else {
+      timelineWrap.hidden = true;
+    }
+
+    if (odOverlay) odOverlay.classList.add("open");
+  }
+
+  function closeOrderDetailModal() {
+    if (odOverlay) odOverlay.classList.remove("open");
+  }
+
+  if (odOverlay) {
+    $("od-close").addEventListener("click", closeOrderDetailModal);
+    $("od-cancel-btn").addEventListener("click", closeOrderDetailModal);
+    odOverlay.addEventListener("click", function (e) {
+      if (e.target === odOverlay) closeOrderDetailModal();
+    });
+
+    $("od-status-select").addEventListener("change", function () {
+      if (!activeOdOrder) return;
+      var newStatus = this.value;
+      var sel = this;
+      sel.disabled = true;
+      api("/api/orders/" + activeOdOrder.id + "/status", {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus })
+      }).then(function (res) {
+        if (res.status === 401) return logout();
+        if (res.ok) {
+          toast("Status pesanan #" + activeOdOrder.id + " diubah jadi " + (STATUS_LABELS[newStatus] || newStatus));
+          refresh();
+          closeOrderDetailModal();
+        } else {
+          toast(res.data.error || "Gagal mengubah status.", true);
+          sel.value = activeOdOrder.status;
+        }
+      }).finally(function () {
+        sel.disabled = false;
+      });
+    });
+
+    $("od-resi-save-btn").addEventListener("click", function () {
+      if (!activeOdOrder) return;
+      var resiVal = $("od-resi-input").value.trim();
+      var btn = this;
+      btn.disabled = true;
+      api("/api/orders/" + activeOdOrder.id + "/tracking", {
+        method: "PUT",
+        body: JSON.stringify({ tracking: resiVal })
+      }).then(function (r) {
+        if (r.status === 401) return logout();
+        if (r.ok) {
+          toast("Nomor resi #" + activeOdOrder.id + " berhasil disimpan.");
+          refresh();
+        } else {
+          toast(r.data.error || "Gagal simpan resi.", true);
+        }
+      }).finally(function () {
+        btn.disabled = false;
+      });
+    });
+
+    $("od-cloc-btn").addEventListener("click", function () {
+      if (activeOdOrder) {
+        var id = activeOdOrder.id;
+        closeOrderDetailModal();
+        openCourierLoc(id);
+      }
+    });
+
+    $("od-print-btn").addEventListener("click", function () {
+      if (activeOdOrder) {
+        printLabel(activeOdOrder.id);
+      }
+    });
+
+    $("od-pay-btn").addEventListener("click", function () {
+      if (activeOdOrder) {
+        var id = activeOdOrder.id;
+        closeOrderDetailModal();
+        openPayProof(id);
+      }
+    });
+  }
+
+  // Klik card pesanan di mobile list
+  var mWrapEl = $("orders-mobile-wrap");
+  if (mWrapEl) {
+    mWrapEl.addEventListener("click", function (e) {
+      var card = e.target.closest("[data-od-id]");
+      if (card) {
+        openOrderDetailModal(Number(card.dataset.odId));
+      }
+    });
+  }
 
   /* lokasi pesanan: peta Google Maps */
   var locMap = null;
