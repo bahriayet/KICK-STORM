@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>KICKSTORM — Portal Kurir &amp; Navigasi</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0A0A0C">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0A0A'/%3E%3Cpath d='M6 10 L14 22 L26 8' stroke='%23D6FF3F' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/courier.css">
+</head>
+<body>
+
+<header class="courier-header">
+  <div class="c-logo">
+    KICKSTORM <span class="badge-courier">Kurir</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn-icon" id="btn-refresh" type="button" title="Muat ulang data pesanan">
+      ↻ Refresh
+    </button>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- Panel Kontrol GPS & Location Sharing -->
+  <section class="gps-card" id="gps-card">
+    <div class="gps-top">
+      <div class="gps-title">
+        <span class="gps-pulse" id="gps-pulse"></span>
+        <span>Live GPS Kurir</span>
+      </div>
+      <label class="switch-wrap" title="Aktifkan pengiriman posisi GPS otomatis">
+        <input type="checkbox" id="gps-toggle">
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <p class="gps-status" id="gps-status-text">
+      Nyalakan toggle di atas saat kamu mulai berangkat mengantar agar Admin &amp; Pelanggan bisa memantau pergerakanmu secara live.
+    </p>
+
+    <!-- Opsi Berbagi Lokasi Google Maps -->
+    <div class="share-link-row">
+      <input class="field-input" type="url" id="courier-share-url-input" placeholder="Tempel link Google Maps Share Lokasi (Opsional)..." autocomplete="off">
+      <button class="btn-icon" id="btn-save-share-url" type="button" style="background:var(--surface-3)">Simpan</button>
+    </div>
+    <p style="font-size:0.72rem;color:var(--muted);margin-top:6px">
+      💡 <b>Tips Google Maps:</b> Di aplikasi Google Maps ➡️ Profil ➡️ <i>Berbagi Lokasi</i> ➡️ Salin link lalu tempel di sini.
+    </p>
+  </section>
+
+  <!-- Filter Status Tab -->
+  <div class="tab-row" role="tablist">
+    <button class="tab-btn active" data-filter="active" type="button">
+      🛵 Tugas Aktif <span class="tab-count" id="count-active">0</span>
+    </button>
+    <button class="tab-btn" data-filter="shipped" type="button">
+      Di Jalan <span class="tab-count" id="count-shipped">0</span>
+    </button>
+    <button class="tab-btn" data-filter="ready" type="button">
+      Siap Antar <span class="tab-count" id="count-ready">0</span>
+    </button>
+    <button class="tab-btn" data-filter="delivered" type="button">
+      Selesai <span class="tab-count" id="count-delivered">0</span>
+    </button>
+  </div>
+
+  <!-- Daftar Pesanan Pengantaran -->
+  <div id="orders-list">
+    <div class="empty-state">Memuat data pengantaran...</div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/courier.js"></script>
+</body>
+</html>

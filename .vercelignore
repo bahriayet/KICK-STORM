@@ -1,0 +1,11 @@
+data/
+.git/
+.env
+.env.example
+*.log
+*.err
+test.js
+backup.js
+purge.js
+scratch_preview.html
+scratch_sneaker.js

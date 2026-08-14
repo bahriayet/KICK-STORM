@@ -1,0 +1,29 @@
+{
+  "name": "tes",
+  "version": "1.0.0",
+  "description": "KICKSTORM landing page — Express + SQLite full stack",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test.js",
+    "backup": "node backup.js",
+    "purge": "node purge.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "compression": "^1.8.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
+    "helmet": "^8.3.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2"
+  }
+}

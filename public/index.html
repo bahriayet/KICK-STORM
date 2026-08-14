@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KICKSTORM — Sneaker Premium Edisi Volt</title>
+<meta name="description" content="KICKSTORM: sneaker premium edisi terbatas. Kenakan badai, jalani kecepatan.">
+<meta property="og:title" content="KICKSTORM — Sneaker Premium Edisi Volt">
+<meta property="og:description" content="KICKSTORM: sneaker premium edisi terbatas. Kenakan badai, jalani kecepatan.">
+<meta property="og:image" content="https://kickstorm.example.com/img/volt-runner-preview.jpg">
+<meta property="og:url" content="https://kickstorm.example.com">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="KICKSTORM — Sneaker Premium Edisi Volt">
+<meta name="twitter:description" content="KICKSTORM: sneaker premium edisi terbatas.">
+<meta name="twitter:image" content="https://kickstorm.example.com/img/volt-runner-preview.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0A0A'/%3E%3Cpath d='M6 10 L14 22 L26 8' stroke='%23D6FF3F' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="/css/style.css">
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+
+<div class="preloader" id="preloader" aria-hidden="true">
+  <div class="pre-inner">
+    <svg class="pre-bolt" viewBox="0 0 32 32" aria-hidden="true">
+      <path class="pre-bolt-path" d="M6 10 L14 22 L26 8" fill="none" stroke="#D6FF3F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <p class="pre-word">KICK<span class="pre-dot"></span>STORM</p>
+    <span class="pre-line"><i></i></span>
+  </div>
+</div>
+
+<div class="progress-bar" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a href="#hero" class="logo" aria-label="KICKSTORM beranda">KICK<span class="dot"></span>STORM</a>
+  <nav class="nav-links" aria-label="Navigasi utama">
+    <a href="#koleksi">Koleksi</a>
+    <a href="#forge">Forge</a>
+    <a href="#cerita">Cerita</a>
+    <a href="#keunggulan">Keunggulan</a>
+    <a href="#klub">Klub</a>
+    <a href="#lacak">Lacak</a>
+  </nav>
+  <div class="nav-actions">
+    <span class="nav-mini" id="nav-mini" aria-hidden="true"><span class="live-pulse"></span><b id="nav-mini-nums">--:--:--</b></span>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Ganti tema" title="Ganti tema (gelap/terang)"></button>
+    <button class="btn btn-primary btn-sm-nav" id="cart-open" type="button" style="padding:11px 20px;font-size:.85rem">Keranjang <span id="cart-badge" class="cart-badge" hidden>0</span></button>
+    <button class="btn btn-ghost btn-sm-nav" id="wishlist-open" type="button" style="padding:11px 20px;font-size:.85rem;color:var(--muted)">Wishlist</button>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="hero">
+    <div class="hero-rain" aria-hidden="true"><canvas id="rain-canvas"></canvas></div>
+    <div class="hero-flash" id="hero-flash" aria-hidden="true"></div>
+    <div class="hero-bg-word" data-anim="fade" aria-hidden="true">STORM</div>
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow" data-anim><span class="pulse"></span> Drop 01 — Edisi Volt</span>
+        <h1 class="hero-title split-lines" aria-label="Kenakan Badai">
+          <span class="line"><span class="line-inner">Kenakan</span></span>
+          <span class="line"><span class="line-inner">Badai<span class="bolt">.</span></span></span>
+        </h1>
+        <p class="hero-sub" data-anim>Sneaker premium yang lahir dari badai kota. Sol busa respon maksimal, upper knit ringan, dan aksen Volt Lime yang menyala di tengah gelap.</p>
+        <div class="btn-row" data-anim>
+          <button class="btn btn-primary" id="cart-open-hero" type="button">Beli Sekarang <span aria-hidden="true">→</span></button>
+          <a class="btn btn-ghost" href="#koleksi">Lihat Koleksi</a>
+        </div>
+        <div class="drop-timer" data-anim aria-label="Waktu tersisa drop berakhir">
+          <span class="dt-label" id="drop-label">Drop 01 berakhir dalam</span>
+          <span class="dt-nums" id="drop-countdown" role="timer">-- --:--:--</span>
+        </div>
+        <div class="hero-stats" data-anim>
+          <div class="stat">
+            <div class="stat-num"><span id="stat-sold">0</span><em>k</em></div>
+            <div class="stat-label">Pasang terjual</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num"><span id="stat-rating">4.9</span><em>★</em></div>
+            <div class="stat-label">Rating pembeli</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num"><span id="stat-hours">0</span><em>j</em></div>
+            <div class="stat-label">Pengiriman kilat</div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-shoe-wrap" data-hero-shoe>
+          <div id="hero-showcase-container" class="hero-showcase-container" aria-label="Visual Animasi Sinematik Sneaker KICKSTORM"></div>
+          <span class="float-chip c1" data-hero-chip><span class="dot"></span> VOLT LIMITED</span>
+          <span class="float-chip c2" data-hero-chip><span class="dot"></span> 10K STEPS TESTED</span>
+          <span class="float-chip c3" data-hero-chip><span class="dot"></span> #1 PREMIUM</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <div class="marquee-group">
+        <span class="volt">Volt Lime</span><span>✦</span><span>Edisi Terbatas</span><span>✦</span><span>10K Steps Tested</span><span>✦</span><span>Storm Edition</span><span>✦</span><span>Gratis Ongkir</span><span>✦</span><span>Premium Sneaker</span><span>✦</span>
+      </div>
+      <div class="marquee-group">
+        <span class="volt">Volt Lime</span><span>✦</span><span>Edisi Terbatas</span><span>✦</span><span>10K Steps Tested</span><span>✦</span><span>Storm Edition</span><span>✦</span><span>Gratis Ongkir</span><span>✦</span><span>Premium Sneaker</span><span>✦</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="promo-strip" id="promo-strip" hidden aria-live="polite">
+    <div class="wrap promo-wrap">
+      <p class="promo-label">Promo Aktif</p>
+      <div id="promo-list" class="promo-list"></div>
+    </div>
+  </section>
+
+  <section class="section" id="koleksi">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker" data-anim>Dropping Now</p>
+          <h2 class="section-title" data-anim>Koleksi<br>Badai</h2>
+        </div>
+        <p class="section-desc" data-anim>Pilihan siluet dari studio kami. Semua edisi terbatas — begitu habis, tidak akan kembali.</p>
+      </div>
+      <div class="filter-bar" style="margin-top:16px;gap:6px;flex-wrap:wrap">
+        <button class="filter-chip" data-filter="all">Semua</button>
+        <button class="filter-chip" data-filter="mono">Mono</button>
+        <button class="filter-chip" data-filter="void">Void</button>
+        <button class="filter-chip" data-filter="volt">Volt</button>
+        <button class="filter-chip" data-filter="ghost">Ghost</button>
+        <button class="filter-chip" data-filter="dark">Dark</button>
+        <button class="filter-chip" data-filter="cream">Cream</button>
+      </div>
+      <div class="sort-bar" style="margin-top:12px;gap:6px;flex-wrap:wrap">
+        <button class="sort-chip" data-sort="price-low">Harga Rendah</button>
+        <button class="sort-chip" data-sort="price-high">Harga Tinggi</button>
+      </div>
+      <div class="cards" id="product-grid" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="section forge" id="forge">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker" data-anim>Storm Forge</p>
+          <h2 class="section-title" data-anim>Rakit &amp;<br>Kustomisasi</h2>
+        </div>
+        <p class="section-desc" data-anim>Eksplorasi 6 siluet badai eksklusif. Pilih variasi warna favoritmu dan tentukan ukuran untuk pesanan custom made-to-order.</p>
+      </div>
+      <div class="forge-grid" data-anim>
+        <div class="forge-preview">
+          <div class="forge-stage" id="forge-stage" aria-label="Pratinjau Kustomisasi Sneaker">
+            <span class="forge-chip" id="forge-chip">CUSTOM 01</span>
+            <button class="forge-nav-btn prev" id="forge-prev" type="button" aria-label="Edisi Sebelumnya">&#x27E8;</button>
+            <button class="forge-nav-btn next" id="forge-next" type="button" aria-label="Edisi Berikutnya">&#x27E9;</button>
+            <div id="forge-carousel" class="forge-carousel"></div>
+            <div id="forge-dots" class="forge-dots" role="tablist" aria-label="Pilih slide"></div>
+          </div>
+          <p class="forge-name" id="forge-name">PURE WHITE / NEON VIOLET / AIR BUBBLE</p>
+          <p class="forge-desc-sub" id="forge-desc-sub">Upper knit putih bersih &amp; aksen neon ungu menyala</p>
+        </div>
+        <div class="forge-panel">
+          <div class="forge-group">
+            <p class="forge-label">Preset Colorway (Referensi Koleksi)</p>
+            <div class="filter-bar forge-presets" id="forge-presets" style="gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+              <button class="filter-chip active" type="button" data-preset="0">Volt &amp; Violet (01)</button>
+              <button class="filter-chip" type="button" data-preset="1">Mint &amp; Lilac (02)</button>
+              <button class="filter-chip" type="button" data-preset="2">Navy &amp; Rose (03)</button>
+              <button class="filter-chip" type="button" data-preset="3">Solar Orange (04)</button>
+              <button class="filter-chip" type="button" data-preset="4">Desert Sand (05)</button>
+              <button class="filter-chip" type="button" data-preset="5">Sand Glow (06)</button>
+            </div>
+          </div>
+          <div class="forge-group">
+            <p class="forge-label">Detail Edisi</p>
+            <div class="forge-specs-box" id="forge-specs-box" style="background:var(--surface-2);border:1px solid var(--stroke-2);border-radius:var(--radius-sm);padding:12px 14px;font-size:0.82rem;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div><span style="color:var(--muted);display:block;font-size:0.7rem;text-transform:uppercase;">Upper</span><strong id="forge-spec-upper" style="color:var(--text)">Pure White Knit</strong></div>
+              <div><span style="color:var(--muted);display:block;font-size:0.7rem;text-transform:uppercase;">Aksen / Swoosh</span><strong id="forge-spec-accent" style="color:var(--volt)">Neon Violet Glow</strong></div>
+              <div><span style="color:var(--muted);display:block;font-size:0.7rem;text-transform:uppercase;">Sol / Bantalan</span><strong id="forge-spec-sole" style="color:var(--text)">Full Air Bubble</strong></div>
+              <div><span style="color:var(--muted);display:block;font-size:0.7rem;text-transform:uppercase;">Tali / Laces</span><strong id="forge-spec-lace" style="color:var(--text)">Lock-in Violet</strong></div>
+            </div>
+          </div>
+          <div class="forge-group">
+            <p class="forge-label">Pilih Ukuran</p>
+            <div class="card-sizes forge-sizes" id="forge-sizes" role="group" aria-label="Pilih ukuran"></div>
+          </div>
+          <div class="forge-foot">
+            <div>
+              <p class="forge-price" id="forge-price">Rp <em>1.950.000</em></p>
+              <p class="forge-note">Made-to-order &bull; Gratis ongkir &bull; Garansi Badai 12 bulan</p>
+            </div>
+            <button class="btn btn-primary" id="forge-add" type="button">Tambahkan <span aria-hidden="true">&rarr;</span></button>
+          </div>
+          <p class="form-msg" id="forge-msg" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pin-stage" id="cerita">
+    <div class="pin-section">
+      <div class="pin-bg-word" aria-hidden="true">STORM</div>
+      <div id="cerita-showcase-container" class="shoe-3d-pin" aria-label="Visual Sinematik Sepatu cerita"></div>
+      <div class="pin-slide pin-a">
+        <div class="pin-slide-content">
+          <p class="pin-num">01</p>
+          <h2 class="pin-title">Didesain di<br>Jakarta</h2>
+          <p class="pin-copy">Setiap siluet lahir dari studio kecil di bantaran kota — mengamati gerak, hujan, dan ritme jalanan yang tidak pernah tidur. 32 mockup sebelum satu garis disetujui.</p>
+        </div>
+      </div>
+      <div class="pin-slide pin-b">
+        <div class="pin-slide-content">
+          <p class="pin-num">02</p>
+          <h2 class="pin-title">10.000<br>Langkah Uji</h2>
+          <p class="pin-copy">Setiap pasang melewati uji lapangan selama 2 minggu. Sol responsif, upper yang tidak lecet, dan bantalan yang tetap empuk di langkah kesepuluh ribu.</p>
+          <ul class="pin-list">
+            <li><span class="tick">✓</span> BounceFoam™ — energi kembali 72%</li>
+            <li><span class="tick">✓</span> Knit anti-air ringan 210g</li>
+            <li><span class="tick">✓</span> Outsole karet vulkanisir</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pin-slide pin-c">
+        <div class="pin-slide-content">
+          <p class="pin-num">03</p>
+          <h2 class="pin-title">Membuat<br>Pernyataan</h2>
+          <p class="pin-copy">Bukan sekadar alas kaki. Ini pernyataan yang kamu pakai setiap pagi. Volt Lime bukan warna — itu sinyal bahwa kamu tidak sedang lewat.</p>
+          <div class="btn-row" style="margin-top:26px">
+            <button class="btn btn-primary" id="cart-open-pin" type="button">Ambil Milikmu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="keunggulan">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker" data-anim>Why Storm</p>
+          <h2 class="section-title" data-anim>Dibangun<br>Untuk Melawan</h2>
+        </div>
+        <p class="section-desc" data-anim>Teknologi yang tidak kamu lihat, tapi pasti kamu rasakan di setiap langkah.</p>
+      </div>
+      <div class="feature-row">
+        <div class="feature" data-anim>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          </div>
+          <h3>BounceFoam™</h3>
+          <p>Busa next-gen dengan energi kembali 72% — ringan di kaki, hidup di langkah.</p>
+        </div>
+        <div class="feature" data-anim>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><path d="M12 2a10 10 0 0 1 10 10M12 2a10 10 0 0 0-10 10"/></svg>
+          </div>
+          <h3>StormKnit™ Upper</h3>
+          <p>Rajutan presisi 210 gram dengan lapisan anti-air. Melawan hujan, tetap bernapas.</p>
+        </div>
+        <div class="feature" data-anim>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <h3>Garansi Badai</h3>
+          <p>12 bulan garansi sol dan jahitan. Rusak karena dipakai habis-habisan? Kami ganti.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" id="klub">
+    <div class="cta-glow" aria-hidden="true"></div>
+    <div class="cta-inner wrap">
+      <p class="section-kicker" data-anim>Storm Club</p>
+      <h2 class="cta-title split-lines" data-anim aria-label="Masuk Storm Club">
+        <span class="line"><span class="line-inner">Masuk</span></span>
+        <span class="line"><span class="line-inner">Storm <span class="bolt">Club</span></span></span>
+      </h2>
+      <p class="cta-sub" data-anim>Dapat akses 24 jam lebih awal ke setiap drop, undangan event eksklusif, dan diskon anggota 5% permanen.</p>
+      <form class="news-form" data-anim id="news-form">
+        <input type="email" required placeholder="email kamu di sini..." aria-label="Alamat email" id="news-email">
+        <button class="btn btn-primary" type="submit" style="padding:12px 22px" id="news-submit">Gabung</button>
+      </form>
+      <p class="cta-note" id="news-msg" data-anim aria-live="polite">Gratis. Tanpa spam. Unsubscribe kapan saja.</p>
+    </div>
+  </section>
+
+  <section class="section" id="lacak" style="padding-top:clamp(40px,6vw,80px)">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker" data-anim>Order Tracker</p>
+          <h2 class="section-title" data-anim>Lacak<br>Pesananmu</h2>
+        </div>
+        <p class="section-desc" data-anim>Masukkan nomor pesanan dan email pemesan untuk melihat status pesananmu secara langsung.</p>
+      </div>
+      <form class="news-form track-form" data-anim id="track-form">
+        <input type="text" required placeholder="Nomor pesanan, mis. 12" aria-label="Nomor pesanan" id="track-id" inputmode="numeric">
+        <input type="email" required placeholder="email pemesan..." aria-label="Email pemesan" id="track-email">
+        <button class="btn btn-primary" type="submit" style="padding:12px 22px" id="track-btn">Lacak</button>
+      </form>
+      <div class="track-result" id="track-result" aria-live="polite"></div>
+      <a class="btn btn-ghost" id="wa-chat" href="#" target="_blank" rel="noopener" hidden style="margin-top:12px;padding:12px 22px">Chat Admin via WhatsApp</a>
+    </div>
+  </section>
+</main>
+
+<div class="cart-overlay" id="cart-overlay"></div>
+<aside class="cart-drawer" id="cart-drawer" aria-label="Keranjang belanja">
+  <div class="cart-head">
+    <h3>Keranjang <span class="bolt" style="color:var(--volt)">Badai</span></h3>
+    <button class="cart-close" id="cart-close" type="button" aria-label="Tutup keranjang">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items"></div>
+  <div class="cart-foot">
+    <div class="coupon-row">
+      <input class="field" type="text" id="coupon-code" placeholder="Kode voucher, mis. STORM10" maxlength="30" autocomplete="off" aria-label="Kode voucher">
+      <button class="btn btn-ghost btn-sm" type="button" id="coupon-apply" style="padding:11px 16px;white-space:nowrap">Pakai</button>
+    </div>
+    <p class="form-msg" id="coupon-msg" aria-live="polite"></p>
+    <div class="cart-totals" id="cart-totals"></div>
+    <div class="cart-total">
+      <span>Total</span>
+      <strong id="cart-total">Rp <em>0</em></strong>
+    </div>
+    <form class="checkout-form" id="checkout-form">
+      <input class="field" type="text" id="order-name" required placeholder="Nama lengkap" autocomplete="name">
+      <input class="field" type="email" id="order-email" required placeholder="Email" autocomplete="email">
+      <div class="map-picker" id="map-picker" hidden>
+        <input class="field" type="text" id="order-address-search" placeholder="Cari alamat, lalu geser pin untuk tepatkan..." autocomplete="off">
+        <div class="map-canvas" id="order-map"></div>
+        <p class="form-msg" id="map-hint" aria-live="polite"></p>
+      </div>
+      <textarea class="field" id="order-address" required rows="2" placeholder="Alamat lengkap (nama jalan, no. rumah, patokan pagar)" autocomplete="street-address"></textarea>
+      <div class="maps-input-wrap">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label for="order-maps-url" style="font-size:.76rem;font-weight:600;color:var(--muted)">🔗 Link Google Maps / Titik Rumah:</label>
+          <button class="btn-text-help" id="maps-guide-open" type="button" style="background:none;border:none;color:var(--volt);font-size:.75rem;cursor:pointer;text-decoration:underline">💡 Cara Salin Link</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <input class="field" type="url" id="order-maps-url" placeholder="Paste link https://maps.app.goo.gl/... (Opsional)" autocomplete="off" style="flex:1">
+          <button class="btn btn-ghost btn-sm" id="btn-get-gps" type="button" title="Gunakan GPS HP saat ini" style="padding:0 12px;font-size:.8rem;white-space:nowrap;display:flex;align-items:center;gap:4px">
+            <span>📍 GPS Saya</span>
+          </button>
+        </div>
+        <p class="form-msg" id="gps-msg" style="font-size:.75rem;margin-top:4px" aria-live="polite"></p>
+      </div>
+      <input type="hidden" id="order-lat">
+      <input type="hidden" id="order-lng">
+      <input class="field" type="text" id="order-referral" placeholder="Kode referensi teman (opsional)" maxlength="30" autocomplete="off" style="text-transform:uppercase">
+      <p class="form-msg" id="referral-msg" aria-live="polite"></p>
+      <div class="courier-box" id="courier-box" hidden>
+        <p class="cg-label">Pilih Kurir</p>
+        <div class="courier-list" id="courier-list" role="radiogroup" aria-label="Pilih kurir pengiriman"></div>
+        <label class="cod-toggle" id="cod-wrap" hidden>
+          <input type="checkbox" id="cod-toggle">
+          <span>Bayar di tempat saat kurir tiba (COD)</span>
+        </label>
+        <p class="form-msg" id="cod-msg" aria-live="polite"></p>
+      </div>
+      <textarea class="field" id="order-notes" rows="2" placeholder="Catatan (opsional): warna, ukuran, instruksi pengiriman..." maxlength="300"></textarea>
+      <button class="btn btn-primary checkout-submit" id="checkout-btn" type="submit">Checkout Sekarang</button>
+      <button class="size-guide-link" id="size-guide-open" type="button">👟 Bingung ukuran? Cek Size Guide</button>
+    </form>
+    <p class="form-msg" id="order-msg" aria-live="polite"></p>
+  </div>
+</aside>
+
+<!-- Wishlist Drawer -->
+<div class="cart-overlay" id="wishlist-overlay"></div>
+<aside class="cart-drawer" id="wishlist-drawer" aria-label="Wishlist">
+  <div class="cart-head">
+    <h3>Wishlist <span class="bolt" style="color:var(--volt)">Badai</span></h3>
+    <button class="cart-close" id="wishlist-close" type="button" aria-label="Tutup wishlist">✕</button>
+  </div>
+  <div class="cart-items" id="wishlist-items"></div>
+  <div class="cart-foot">
+    <div class="cart-totals" style="margin-bottom:8px">
+      <span>Total item</span>
+      <strong id="wishlist-count">0</strong>
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-top:8px" id="checkout-wishlist">Beli Semua Item</button>
+  </div>
+</aside>
+
+<button class="back-top" id="back-top" type="button" aria-label="Kembali ke atas">↑</button>
+
+<!-- Size Guide Modal -->
+<div class="cart-overlay" id="sizeguide-overlay"></div>
+<aside class="cart-drawer" id="sizeguide-drawer" aria-label="Size guide sepatu">
+  <div class="cart-head">
+    <h3>Size <span class="bolt" style="color:var(--volt)">Guide</span></h3>
+    <button class="cart-close" id="sizeguide-close" type="button" aria-label="Tutup size guide">✕</button>
+  </div>
+  <div class="size-guide-body">
+    <label class="sg-label" for="sg-cm">Panjang kaki (cm)</label>
+    <div class="sg-row">
+      <input class="field" id="sg-cm" type="number" min="20" max="33" step="0.1" placeholder="mis. 26.5" inputmode="decimal">
+      <button class="btn btn-primary btn-sm" id="sg-check" type="button">Cek Ukuran</button>
+    </div>
+    <p class="form-msg" id="sg-result" aria-live="polite"></p>
+    <p class="muted" style="font-size:.78rem;margin-top:14px">Cara ukur: berdiri tegak, tempelkan tumit ke dinding, ukur dari ujung dinding ke ujung jari kaki terpanjang.</p>
+    <div class="sg-table">
+      <table>
+        <thead><tr><th>Panjang Kaki</th><th>Ukuran (EU)</th></tr></thead>
+        <tbody id="sg-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</aside>
+
+<!-- Maps Guide Modal -->
+<div class="cart-overlay" id="mapsguide-overlay"></div>
+<aside class="cart-drawer" id="mapsguide-drawer" aria-label="Panduan Link Google Maps">
+  <div class="cart-head">
+    <h3>Panduan <span class="bolt" style="color:var(--volt)">Google Maps</span></h3>
+    <button class="cart-close" id="mapsguide-close" type="button" aria-label="Tutup panduan">✕</button>
+  </div>
+  <div class="size-guide-body" style="padding:14px">
+    <p style="font-size:.85rem;line-height:1.5;color:var(--text);margin-bottom:12px">
+      Agar kurir kami sampai tepat di depan rumahmu tanpa tersesat, ikuti 4 langkah mudah ini:
+    </p>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="step-num">1</span>
+        <div>
+          <strong style="font-size:.84rem;color:var(--volt)">Buka Google Maps di HP</strong>
+          <p class="muted" style="font-size:.76rem;margin-top:2px">Cari titik rumahmu atau klik tombol lingkaran biru untuk lokasi saat ini.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="step-num">2</span>
+        <div>
+          <strong style="font-size:.84rem;color:var(--volt)">Tahan Titik Rumah (Drop Pin)</strong>
+          <p class="muted" style="font-size:.76rem;margin-top:2px">Tekan dan tahan pada atap rumah hingga muncul pin merah bertanda <em>"Pin Ditempatkan"</em>.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="step-num">3</span>
+        <div>
+          <strong style="font-size:.84rem;color:var(--volt)">Klik 'Bagikan' ➡️ 'Salin Link'</strong>
+          <p class="muted" style="font-size:.76rem;margin-top:2px">Pilih menu <b>Bagikan (Share)</b> lalu klik <b>Salin ke Papan Klip (Copy link)</b>.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="step-num">4</span>
+        <div>
+          <strong style="font-size:.84rem;color:var(--volt)">Tempelkan di Kolom Checkout</strong>
+          <p class="muted" style="font-size:.76rem;margin-top:2px">Kembali ke keranjang dan tempel link (contoh: <code>https://maps.app.goo.gl/...</code>).</p>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:var(--volt-dim);border:1px solid var(--stroke-2);border-radius:var(--radius-sm)">
+      <p style="font-size:.78rem;color:var(--text);margin:0;line-height:1.4">
+        ⚡ <b>Tips Kilat:</b> Kamu juga bisa langsung klik tombol <b>"📍 GPS Saya"</b> di keranjang untuk mendeteksi lokasi otomatis tanpa perlu keluar web!
+      </p>
+    </div>
+    <button class="btn btn-primary btn-block" id="mapsguide-gotit" type="button" style="margin-top:16px">Saya Mengerti ✓</button>
+  </div>
+</aside>
+
+<footer class="footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#hero" class="logo">KICK<span class="dot"></span>STORM</a>
+      <p class="blurb">Sneaker premium edisi terbatas dari Jakarta. Kenakan badai, jalani kecepatan.</p>
+    </div>
+    <div>
+      <h4>Navigasi</h4>
+      <ul>
+        <li><a href="#koleksi">Koleksi</a></li>
+        <li><a href="#forge">Storm Forge</a></li>
+        <li><a href="#cerita">Cerita</a></li>
+        <li><a href="#keunggulan">Keunggulan</a></li>
+        <li><a href="#klub">Storm Club</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Bantuan</h4>
+      <ul>
+        <li><a href="#">Ukuran &amp; Panduan</a></li>
+        <li><a href="#lacak">Pengiriman</a></li>
+        <li><a href="#">Garansi Badai</a></li>
+        <li><a href="#">Hubungi Kami</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Ikuti Kami</h4>
+      <ul>
+        <li><a href="#">Instagram</a></li>
+        <li><a href="#">TikTok</a></li>
+        <li><a href="#">X / Twitter</a></li>
+        <li><a href="#">YouTube</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-base">
+    <span>© 2026 KICKSTORM. Semua hak dilindungi.</span>
+    <span>Dibuat dengan badai di Jakarta.</span>
+  </div>
+</footer>
+
+<script src="/vendor/gsap.min.js"></script>
+<script src="/vendor/ScrollTrigger.min.js"></script>
+<script type="module" src="/js/forge.js"></script>
+<script src="/js/video_showcase.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/fx.js"></script>
+</body>
+</html>
