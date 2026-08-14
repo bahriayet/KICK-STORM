@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=2026081516">
+<link rel="stylesheet" href="/css/admin.css?v=2026081517">
 </head>
 <body>
 
@@ -214,7 +214,7 @@
       <p class="muted" style="font-size:.82rem">Atur katalog — tambah, ubah, atau hapus produk.</p>
       <button class="btn btn-primary btn-sm" type="button" id="add-product-btn">+ Tambah Produk</button>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap products-desktop-wrap">
       <table>
         <thead>
           <tr><th>ID</th><th>Nama</th><th>Badge</th><th>Harga</th><th>Variant</th><th>Stok</th><th>Terjual</th><th>Aksi</th></tr>
@@ -222,6 +222,7 @@
         <tbody id="products-body"></tbody>
       </table>
     </div>
+    <div class="products-mobile-wrap" id="products-mobile-wrap"></div>
     <div class="waitlist-card" id="waitlist-card" hidden>
       <div class="panel-head" style="margin-top:20px">
         <div>
@@ -233,7 +234,7 @@
           <button class="btn btn-ghost btn-sm" type="button" id="waitlist-refresh">↻</button>
         </div>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap waitlist-desktop-wrap">
         <table>
           <thead>
             <tr><th>Produk</th><th>Email</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr>
@@ -241,6 +242,7 @@
           <tbody id="waitlist-body"></tbody>
         </table>
       </div>
+      <div class="waitlist-mobile-wrap" id="waitlist-mobile-wrap"></div>
     </div>
   </section>
 
@@ -249,7 +251,7 @@
       <p class="muted" style="font-size:.82rem">Kelola kode voucher — diskon persen atau nominal.</p>
       <button class="btn btn-primary btn-sm" type="button" id="add-coupon-btn">+ Tambah Kupon</button>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap coupons-desktop-wrap">
       <table>
         <thead>
           <tr><th>Kode</th><th>Nilai</th><th>Min. Belanja</th><th>Pemakaian</th><th>Kedaluwarsa</th><th>Status</th><th>Aksi</th></tr>
@@ -257,6 +259,7 @@
         <tbody id="coupons-body"></tbody>
       </table>
     </div>
+    <div class="coupons-mobile-wrap" id="coupons-mobile-wrap"></div>
   </section>
 
   <section class="panel" id="panel-map">
@@ -290,7 +293,7 @@
       <button class="btn btn-ghost btn-sm" type="button" id="r-cancel">Batal</button>
       <p class="form-msg" id="r-msg" aria-live="polite"></p>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap referrals-desktop-wrap">
       <table>
         <thead>
           <tr><th>Kode</th><th>Pemilik</th><th>Kuota</th><th>Terpakai</th><th>Status</th><th>Aksi</th></tr>
@@ -298,6 +301,7 @@
         <tbody id="referrals-body"></tbody>
       </table>
     </div>
+    <div class="referrals-mobile-wrap" id="referrals-mobile-wrap"></div>
   </section>
 
   <section class="panel" id="panel-flash">
@@ -314,7 +318,7 @@
       <button class="btn btn-ghost btn-sm" type="button" id="f-cancel">Batal</button>
       <p class="form-msg" id="f-msg" aria-live="polite"></p>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap flash-desktop-wrap">
       <table>
         <thead>
           <tr><th>Nama</th><th>Diskon</th><th>Mulai</th><th>Selesai</th><th>Status</th><th>Aksi</th></tr>
@@ -322,6 +326,7 @@
         <tbody id="flash-body"></tbody>
       </table>
     </div>
+    <div class="flash-mobile-wrap" id="flash-mobile-wrap"></div>
   </section>
 
   <section class="panel" id="panel-drops">
@@ -338,7 +343,7 @@
       <button class="btn btn-ghost btn-sm" type="button" id="d-cancel">Batal</button>
       <p class="form-msg" id="d-msg" aria-live="polite"></p>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap drops-desktop-wrap">
       <table>
         <thead>
           <tr><th>Nama</th><th>Produk</th><th>Rilis</th><th>Status</th><th>Aksi</th></tr>
@@ -346,6 +351,7 @@
         <tbody id="drops-body"></tbody>
       </table>
     </div>
+    <div class="drops-mobile-wrap" id="drops-mobile-wrap"></div>
   </section>
 
   <section class="panel" id="panel-couriers">
@@ -361,7 +367,7 @@
       <button class="btn btn-ghost btn-sm" type="button" id="k-cancel">Batal</button>
       <p class="form-msg" id="k-msg" aria-live="polite"></p>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap couriers-desktop-wrap">
       <table>
         <thead>
           <tr><th>Kurir</th><th>Tier Ongkir</th><th>COD</th><th>Status</th><th>Aksi</th></tr>
@@ -369,6 +375,7 @@
         <tbody id="couriers-body"></tbody>
       </table>
     </div>
+    <div class="couriers-mobile-wrap" id="couriers-mobile-wrap"></div>
   </section>
 
   <section class="panel" id="panel-members">
@@ -376,7 +383,7 @@
       <p class="muted" style="font-size:.82rem">Member Storm Club — poin dari belanja, level otomatis, dan kupon ulang tahun.</p>
       <button class="btn btn-ghost btn-sm" type="button" id="copy-subscribers-btn">✉ Salin Email Subscriber</button>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap members-desktop-wrap">
       <table>
         <thead>
           <tr><th>Nama</th><th>Email</th><th>Poin</th><th>Level</th><th>Pesanan</th><th>Ulang Tahun</th></tr>
@@ -384,6 +391,7 @@
         <tbody id="members-body"></tbody>
       </table>
     </div>
+    <div class="members-mobile-wrap" id="members-mobile-wrap"></div>
   </section>
 
   <section class="panel" id="panel-settings">
@@ -686,6 +694,6 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="/js/admin.js?v=2026081516"></script>
+<script src="/js/admin.js?v=2026081517"></script>
 </body>
 </html>

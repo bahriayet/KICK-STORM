@@ -398,7 +398,17 @@ table .btn{padding:6px 12px;font-size:.75rem}
   background: rgba(214, 255, 63, 0.12) !important;
 }
 
-.orders-mobile-wrap { display: none; }
+.orders-mobile-wrap,
+.products-mobile-wrap,
+.waitlist-mobile-wrap,
+.coupons-mobile-wrap,
+.referrals-mobile-wrap,
+.flash-mobile-wrap,
+.drops-mobile-wrap,
+.couriers-mobile-wrap,
+.members-mobile-wrap {
+  display: none;
+}
 
 /* Order Detail Modal */
 .order-detail-modal {
@@ -984,12 +994,79 @@ html, body {
 }
 
 @media (max-width: 768px) {
-  .orders-desktop-wrap { display: none !important; }
-  .orders-mobile-wrap {
+  .orders-desktop-wrap,
+  .products-desktop-wrap,
+  .waitlist-desktop-wrap,
+  .coupons-desktop-wrap,
+  .referrals-desktop-wrap,
+  .flash-desktop-wrap,
+  .drops-desktop-wrap,
+  .couriers-desktop-wrap,
+  .members-desktop-wrap {
+    display: none !important;
+  }
+
+  .orders-mobile-wrap,
+  .products-mobile-wrap,
+  .waitlist-mobile-wrap,
+  .coupons-mobile-wrap,
+  .referrals-mobile-wrap,
+  .flash-mobile-wrap,
+  .drops-mobile-wrap,
+  .couriers-mobile-wrap,
+  .members-mobile-wrap {
     display: flex !important;
     flex-direction: column;
     gap: 8px;
     width: 100%;
+  }
+
+  #map-all {
+    height: 280px !important;
+  }
+
+  /* Compact General Admin Mobile Card (Products, Coupons, Referrals, etc.) */
+  .admin-m-card {
+    background: var(--surface);
+    border: 1px solid var(--stroke-2);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    transition: all 0.15s ease;
+  }
+  .admin-m-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .admin-m-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .admin-m-sub {
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+  .admin-m-mid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.82rem;
+  }
+  .admin-m-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   /* Compact Order Card on Mobile (Takes very little vertical space!) */
