@@ -421,54 +421,92 @@ var shipped = o.status === "shipped" || o.status === "delivered";
       .finally(function () { btn.disabled = false; });
   });
 
-  $("logout-btn").addEventListener("click", function () {
+  function doLogout() {
     api("/api/admin/logout", { method: "POST" }).then(logout).catch(logout);
-  });
+  }
 
-  $("logout-all-btn").addEventListener("click", function () {
+  function doLogoutAll() {
     if (!confirm("Akhiri semua sesi admin di semua perangkat? Kamu harus login ulang.")) return;
     api("/api/admin/logout-all", { method: "POST" })
       .then(function () { toast("Semua sesi admin diakhiri."); logout(); })
       .catch(function () { toast("Gagal mengakhiri sesi.", true); });
-  });
+  }
 
-  /* mobile menu toggle */
+  if ($("logout-btn")) $("logout-btn").addEventListener("click", doLogout);
+  if ($("sb-logout-btn")) $("sb-logout-btn").addEventListener("click", doLogout);
+  if ($("logout-all-btn")) $("logout-all-btn").addEventListener("click", doLogoutAll);
+  if ($("sb-logout-all-btn")) $("sb-logout-all-btn").addEventListener("click", doLogoutAll);
+
+  /* Shopify Mobile Drawer Controls */
+  var sidebar = $("admin-sidebar");
+  var backdrop = $("sidebar-backdrop");
   var menuToggle = $("admin-menu-toggle");
-  var topbarMenu = $("topbar-menu");
-  if (menuToggle && topbarMenu) {
+  var closeBtn = $("sidebar-close-btn");
+
+  function openMobileDrawer() {
+    if (sidebar) sidebar.classList.add("open");
+    if (backdrop) backdrop.classList.add("show");
+    if (menuToggle) {
+      menuToggle.classList.add("active");
+      menuToggle.setAttribute("aria-expanded", "true");
+    }
+  }
+
+  function closeMobileDrawer() {
+    if (sidebar) sidebar.classList.remove("open");
+    if (backdrop) backdrop.classList.remove("show");
+    if (menuToggle) {
+      menuToggle.classList.remove("active");
+      menuToggle.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  if (menuToggle) {
     menuToggle.addEventListener("click", function (e) {
       e.stopPropagation();
-      var isOpen = topbarMenu.classList.toggle("open");
-      menuToggle.classList.toggle("active", isOpen);
-      menuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    });
-    topbarMenu.addEventListener("click", function (e) {
-      if (e.target.closest(".btn")) {
-        topbarMenu.classList.remove("open");
-        menuToggle.classList.remove("active");
-        menuToggle.setAttribute("aria-expanded", "false");
-      }
-    });
-    document.addEventListener("click", function (e) {
-      if (!e.target.closest(".topbar")) {
-        topbarMenu.classList.remove("open");
-        menuToggle.classList.remove("active");
-        menuToggle.setAttribute("aria-expanded", "false");
+      if (sidebar && sidebar.classList.contains("open")) {
+        closeMobileDrawer();
+      } else {
+        openMobileDrawer();
       }
     });
   }
 
-  /* tabs */
-  document.querySelectorAll(".tab").forEach(function (tab) {
-    tab.addEventListener("click", function () {
-      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
-      document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
-      tab.classList.add("active");
-      var targetPanel = $("panel-" + tab.dataset.tab);
-      if (targetPanel) targetPanel.classList.add("active");
-      if (tab.dataset.tab === "map") ensureMapAll();
-      if (tab.scrollIntoView) {
-        tab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  if (closeBtn) closeBtn.addEventListener("click", closeMobileDrawer);
+  if (backdrop) backdrop.addEventListener("click", closeMobileDrawer);
+
+  /* Unified Tab Switching Function */
+  function selectTab(tabKey) {
+    if (!tabKey) return;
+    document.querySelectorAll(".tab").forEach(function (t) {
+      t.classList.toggle("active", t.dataset.tab === tabKey);
+    });
+    document.querySelectorAll(".sidebar-btn").forEach(function (sb) {
+      sb.classList.toggle("active", sb.dataset.tab === tabKey);
+    });
+    document.querySelectorAll(".panel").forEach(function (p) {
+      p.classList.remove("active");
+    });
+    var targetPanel = $("panel-" + tabKey);
+    if (targetPanel) targetPanel.classList.add("active");
+
+    if (tabKey === "map") ensureMapAll();
+
+    // Close drawer if on mobile
+    closeMobileDrawer();
+
+    // Scroll active tab into view smoothly on mobile pill slider
+    var activeTab = document.querySelector(".tab.active");
+    if (activeTab && activeTab.scrollIntoView) {
+      activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }
+
+  /* Listen to all tab clicks across desktop tabs & mobile drawer */
+  document.querySelectorAll(".tab, .sidebar-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (btn.dataset && btn.dataset.tab) {
+        selectTab(btn.dataset.tab);
       }
     });
   });

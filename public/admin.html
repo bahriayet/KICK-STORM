@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=2026081508">
+<link rel="stylesheet" href="/css/admin.css?v=2026081509">
 </head>
 <body>
 
@@ -30,14 +30,98 @@
 </div>
 
 <div id="app-view">
+  <!-- Mobile Off-Canvas Drawer (Shopify Style) - Hidden on Desktop -->
+  <aside class="admin-sidebar" id="admin-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-text">KICK<span class="dot"></span>STORM</div>
+        <span class="badge-pill">Admin Room</span>
+      </div>
+      <button class="sidebar-close-btn" id="sidebar-close-btn" type="button" aria-label="Tutup Menu">✕</button>
+    </div>
+
+    <div class="sidebar-scroll">
+      <div class="sidebar-group">
+        <span class="sidebar-group-title">📦 MANAJEMEN UTAMA</span>
+        <nav class="sidebar-nav">
+          <button class="sidebar-btn active" data-tab="orders" type="button">
+            <span class="sb-icon">🛒</span>
+            <span class="sb-label">Pesanan</span>
+            <span class="tab-badge" id="sb-orders-badge" hidden>!</span>
+          </button>
+          <button class="sidebar-btn" data-tab="products" type="button">
+            <span class="sb-icon">👟</span>
+            <span class="sb-label">Produk &amp; Stok</span>
+          </button>
+          <button class="sidebar-btn" data-tab="map" type="button">
+            <span class="sb-icon">🗺️</span>
+            <span class="sb-label">Peta Pesanan</span>
+          </button>
+          <button class="sidebar-btn" data-tab="couriers" type="button">
+            <span class="sb-icon">🛵</span>
+            <span class="sb-label">Kurir &amp; Armada</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-group">
+        <span class="sidebar-group-title">⚡ MARKETING &amp; PROMO</span>
+        <nav class="sidebar-nav">
+          <button class="sidebar-btn" data-tab="coupons" type="button">
+            <span class="sb-icon">🎟️</span>
+            <span class="sb-label">Kupon Diskon</span>
+          </button>
+          <button class="sidebar-btn" data-tab="referrals" type="button">
+            <span class="sb-icon">🤝</span>
+            <span class="sb-label">Program Referral</span>
+          </button>
+          <button class="sidebar-btn" data-tab="flash" type="button">
+            <span class="sb-icon">🔥</span>
+            <span class="sb-label">Flash Sale</span>
+          </button>
+          <button class="sidebar-btn" data-tab="drops" type="button">
+            <span class="sb-icon">⏳</span>
+            <span class="sb-label">Drop &amp; Antrian</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-group">
+        <span class="sidebar-group-title">⚙️ SISTEM &amp; TOKO</span>
+        <nav class="sidebar-nav">
+          <button class="sidebar-btn" data-tab="members" type="button">
+            <span class="sb-icon">👥</span>
+            <span class="sb-label">Member &amp; Akun</span>
+          </button>
+          <button class="sidebar-btn" data-tab="settings" type="button">
+            <span class="sb-icon">⚙️</span>
+            <span class="sb-label">Pengaturan Toko</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-links-row">
+        <a class="sidebar-link-btn" href="/courier" target="_blank" rel="noopener">🛵 Kurir ↗</a>
+        <a class="sidebar-link-btn" href="/" target="_blank" rel="noopener">👁️ Toko ↗</a>
+      </div>
+      <button class="sidebar-logout-all-btn" id="sb-logout-all-btn" type="button">🔄 Logout Semua Sesi</button>
+      <button class="sidebar-logout-btn" id="sb-logout-btn" type="button">🚪 Keluar</button>
+    </div>
+  </aside>
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
   <header class="topbar">
-    <div class="logo">KICK<span class="dot"></span>STORM <span class="badge-pill" style="margin-left:8px">Admin</span></div>
-    
-    <button class="admin-menu-toggle" id="admin-menu-toggle" type="button" aria-label="Buka Menu Admin" aria-expanded="false">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
+    <div class="topbar-left-group">
+      <button class="admin-menu-toggle" id="admin-menu-toggle" type="button" aria-label="Buka Menu Admin" aria-expanded="false">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <div class="logo">KICK<span class="dot"></span>STORM <span class="badge-pill" style="margin-left:8px">Admin</span></div>
+    </div>
 
     <div class="topbar-right" id="topbar-menu">
       <a class="btn btn-ghost btn-sm" href="/courier" target="_blank" rel="noopener" style="color:var(--volt);border-color:var(--volt)">🛵 Portal Kurir ↗</a>
@@ -512,6 +596,6 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="/js/admin.js?v=2026081508"></script>
+<script src="/js/admin.js?v=2026081509"></script>
 </body>
 </html>
