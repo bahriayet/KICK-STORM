@@ -156,7 +156,7 @@ app.use(compression());
 app.use(express.json({ limit: "6mb" }));
 app.use(express.static(path.join(__dirname, "public"), {
   setHeaders(res, filePath) {
-    if (filePath.endsWith(".html") || filePath.endsWith("admin.js")) {
+    if (filePath.endsWith(".html") || filePath.endsWith("admin.js") || filePath.endsWith("admin.css") || filePath.endsWith("style.css") || filePath.endsWith("app.js")) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
