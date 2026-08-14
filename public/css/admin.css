@@ -87,6 +87,10 @@ select.field option{background:var(--surface)}
 .admin-sidebar{display:none}
 .sidebar-backdrop{display:none}
 
+.analytics-section{width:100%}
+.analytics-toggle-btn{display:none}
+.analytics-content{display:block}
+
 .admin-menu-toggle {
   display: none;
   width: 42px;
@@ -607,14 +611,81 @@ html, body {
     transition: opacity 0.25s ease;
   }
   .sidebar-backdrop.show {
-    opacity: 1;
-    pointer-events: auto;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  /* Compact Analytics Toggle Button on Mobile */
+  .analytics-section {
+    padding: 0 14px;
+    margin-top: 10px;
+    width: 100%;
+  }
+
+  .analytics-toggle-btn {
+    display: flex !important;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 15px;
+    background: var(--surface);
+    border: 1px solid var(--stroke-2);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  .analytics-toggle-btn:hover {
+    border-color: var(--stroke);
+    background: var(--surface-2);
+  }
+  .analytics-section.open .analytics-toggle-btn {
+    border-color: var(--volt);
+    color: var(--volt);
+  }
+  .toggle-btn-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toggle-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+  .toggle-chevron {
+    font-size: 0.95rem;
+    transition: transform 0.25s ease;
+    color: var(--muted);
+  }
+  .analytics-section.open .toggle-chevron {
+    transform: rotate(180deg);
+    color: var(--volt);
+  }
+
+  .analytics-content {
+    display: none;
+    animation: fadeInAccordion 0.22s ease-out;
+  }
+  .analytics-section.open .analytics-content {
+    display: block;
+  }
+  @keyframes fadeInAccordion {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .stats-row {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
-    padding: 16px 12px 0 !important;
+    padding: 12px 0 0 !important;
     width: 100% !important;
     max-width: 100% !important;
   }

@@ -475,6 +475,16 @@ var shipped = o.status === "shipped" || o.status === "delivered";
   if (closeBtn) closeBtn.addEventListener("click", closeMobileDrawer);
   if (backdrop) backdrop.addEventListener("click", closeMobileDrawer);
 
+  /* Analytics section collapse toggle on mobile */
+  var analyticsSection = $("analytics-section");
+  var analyticsToggleBtn = $("analytics-toggle-btn");
+  if (analyticsToggleBtn && analyticsSection) {
+    analyticsToggleBtn.addEventListener("click", function () {
+      var isOpen = analyticsSection.classList.toggle("open");
+      analyticsToggleBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+  }
+
   /* Unified Tab Switching Function */
   function selectTab(tabKey) {
     if (!tabKey) return;
