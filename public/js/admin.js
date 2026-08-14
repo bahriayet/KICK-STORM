@@ -222,11 +222,21 @@
         });
         var items = (o.items || []).map(function (i) { return itemLabel(i); }).join("<br>");
         var couponChip = o.coupon_code ? '<div class="coupon-chip">Kupon: ' + escapeHtml(o.coupon_code) + "</div>" : "";
+        var shipped = o.status === "shipped" || o.status === "delivered";
         var statusBadge = '<span class="badge-status">' + (STATUS_LABELS[o.status] || o.status) + "</span>";
         var resiBadge = (shipped && o.tracking_number) ? '<span class="chip mono" style="font-size:.72rem">Resi: ' + escapeHtml(o.tracking_number) + "</span>" : "";
         var payProofHighlight = (o.status === "awaiting_payment" && o.payment_proof)
           ? '<button class="btn btn-primary btn-sm pay-btn" type="button" data-pay-id="' + o.id + '">💳 Cek Bukti</button>'
           : "";
+
+        var extraChips = (o.shipping > 0 ? '<span class="chip">Ongkir ' + rupiah(o.shipping) + "</span>" : "") +
+          (o.referral_code ? '<span class="chip chip-referral">Referral ' + escapeHtml(o.referral_code) + "</span>" : "") +
+          (o.flash_sale_id ? '<span class="chip chip-flash">Flash Sale</span>' : "") +
+          (o.payment_method === "cod" ? '<span class="chip chip-cod">COD</span>' : "") +
+          (o.queue_no ? '<span class="chip chip-queue">Antrean #' + o.queue_no + "</span>" : "");
+
+        var totalCell = '<div class="price">' + rupiah(o.total) + "</div>" +
+          (extraChips ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' + extraChips + "</div>" : "");
 
         var statusCellHtml = '<div class="desktop-order-actions">' +
           statusBadge +
