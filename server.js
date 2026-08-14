@@ -1620,6 +1620,68 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+/* ---- Courier Portal & Live Navigation Endpoints ---- */
+
+app.get("/courier", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "courier.html"));
+});
+
+app.get("/api/courier/orders", (req, res) => {
+  const statusFilter = req.query.status;
+  let sql = "SELECT id, customer_name, email, address, maps_url, lat, lng, total, status, notes, payment_method, courier_id, courier_name, courier_lat, courier_lng, courier_share_url, courier_updated_at, created_at FROM orders WHERE status != 'cancelled' ORDER BY id DESC LIMIT 50";
+  if (statusFilter === "active") {
+    sql = "SELECT id, customer_name, email, address, maps_url, lat, lng, total, status, notes, payment_method, courier_id, courier_name, courier_lat, courier_lng, courier_share_url, courier_updated_at, created_at FROM orders WHERE status IN ('paid', 'pending', 'awaiting_payment', 'shipped') ORDER BY id DESC LIMIT 50";
+  }
+  const orders = db.prepare(sql).all();
+  const getItems = db.prepare("SELECT product_id, product_name, price, qty, size, colorway FROM order_items WHERE order_id = ?");
+  const result = orders.map((o) => ({
+    ...o,
+    items: getItems.all(o.id)
+  }));
+  res.json({ orders: result });
+});
+
+app.post("/api/courier/orders/:id/status", (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  const { status, courier_name } = req.body || {};
+  if (!["shipped", "delivered"].includes(status)) {
+    return res.status(400).json({ error: "Status kurir harus shipped (sedang diantar) atau delivered (selesai)." });
+  }
+  const order = db.prepare("SELECT id, status FROM orders WHERE id = ?").get(id);
+  if (!order) return res.status(404).json({ error: "Pesanan tidak ditemukan." });
+
+  db.prepare("UPDATE orders SET status = ?, courier_name = COALESCE(?, courier_name), courier_updated_at = datetime('now') WHERE id = ?")
+    .run(status, courier_name || null, id);
+  db.prepare("INSERT INTO order_status_log (order_id, from_status, to_status, changed_by) VALUES (?, ?, ?, ?)")
+    .run(id, order.status, status, courier_name || "Kurir");
+
+  if (db.pushToTurso) {
+    db.pushToTurso("UPDATE orders SET status = ?, courier_name = COALESCE(?, courier_name), courier_updated_at = datetime('now') WHERE id = ?", [status, courier_name || null, id]);
+    db.pushToTurso("INSERT INTO order_status_log (order_id, from_status, to_status, changed_by) VALUES (?, ?, ?, ?)", [id, order.status, status, courier_name || "Kurir"]);
+  }
+
+  res.json({ ok: true, id, status, message: `Status pesanan #${id} berhasil diubah menjadi ${status === "shipped" ? "Sedang Diantar" : "Selesai"}.` });
+});
+
+app.post("/api/courier/sync-location", (req, res) => {
+  const { lat, lng, share_url } = req.body || {};
+  if (share_url !== undefined) {
+    db.prepare("UPDATE orders SET courier_share_url = ?, courier_updated_at = datetime('now') WHERE status = 'shipped'")
+      .run(String(share_url || "").trim());
+    if (db.pushToTurso) {
+      db.pushToTurso("UPDATE orders SET courier_share_url = ?, courier_updated_at = datetime('now') WHERE status = 'shipped'", [String(share_url || "").trim()]);
+    }
+  }
+  if (lat !== undefined && lng !== undefined && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+    db.prepare("UPDATE orders SET courier_lat = ?, courier_lng = ?, courier_updated_at = datetime('now') WHERE status = 'shipped'")
+      .run(Number(lat), Number(lng));
+    if (db.pushToTurso) {
+      db.pushToTurso("UPDATE orders SET courier_lat = ?, courier_lng = ?, courier_updated_at = datetime('now') WHERE status = 'shipped'", [Number(lat), Number(lng)]);
+    }
+  }
+  res.json({ ok: true });
+});
+
 app.use("/api", (req, res) => res.status(404).json({ error: "Endpoint tidak ditemukan." }));
 
 app.use((err, req, res, next) => {
