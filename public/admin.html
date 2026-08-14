@@ -32,11 +32,18 @@
 <div id="app-view">
   <header class="topbar">
     <div class="logo">KICK<span class="dot"></span>STORM <span class="badge-pill" style="margin-left:8px">Admin</span></div>
-    <div class="topbar-right">
+    
+    <button class="admin-menu-toggle" id="admin-menu-toggle" type="button" aria-label="Buka Menu Admin" aria-expanded="false">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+
+    <div class="topbar-right" id="topbar-menu">
       <a class="btn btn-ghost btn-sm" href="/courier" target="_blank" rel="noopener" style="color:var(--volt);border-color:var(--volt)">🛵 Portal Kurir ↗</a>
-      <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">Lihat Toko ↗</a>
-      <button class="btn btn-ghost btn-sm" id="logout-all-btn" type="button" title="Akhiri semua sesi admin di semua perangkat">Logout Semua Sesi</button>
-      <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Keluar</button>
+      <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">👁️ Lihat Toko ↗</a>
+      <button class="btn btn-ghost btn-sm" id="logout-all-btn" type="button" title="Akhiri semua sesi admin di semua perangkat">🔄 Logout Semua Sesi</button>
+      <button class="btn btn-danger btn-sm" id="logout-btn" type="button">🚪 Keluar</button>
     </div>
   </header>
 
@@ -505,6 +512,6 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="/js/admin.js?v=2026081502"></script>
+<script src="/js/admin.js?v=2026081503"></script>
 </body>
 </html>

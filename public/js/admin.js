@@ -432,6 +432,32 @@ var shipped = o.status === "shipped" || o.status === "delivered";
       .catch(function () { toast("Gagal mengakhiri sesi.", true); });
   });
 
+  /* mobile menu toggle */
+  var menuToggle = $("admin-menu-toggle");
+  var topbarMenu = $("topbar-menu");
+  if (menuToggle && topbarMenu) {
+    menuToggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var isOpen = topbarMenu.classList.toggle("open");
+      menuToggle.classList.toggle("active", isOpen);
+      menuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+    topbarMenu.addEventListener("click", function (e) {
+      if (e.target.closest(".btn")) {
+        topbarMenu.classList.remove("open");
+        menuToggle.classList.remove("active");
+        menuToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".topbar")) {
+        topbarMenu.classList.remove("open");
+        menuToggle.classList.remove("active");
+        menuToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
   /* tabs */
   document.querySelectorAll(".tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
