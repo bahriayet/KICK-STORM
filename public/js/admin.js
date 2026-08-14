@@ -300,8 +300,10 @@
       var products = res.data.products;
       $("tab-products-count").textContent = products.length;
       var body = $("products-body");
+      var pmWrap = $("products-mobile-wrap");
       if (products.length === 0) {
         body.innerHTML = '<tr><td colspan="8"><div class="empty-state">Katalog kosong \u2014 tambah produk pertama.</div></td></tr>';
+        if (pmWrap) pmWrap.innerHTML = '<div class="empty-state">Katalog kosong \u2014 tambah produk pertama.</div>';
         return;
       }
       body.innerHTML = products.map(function (p) {
@@ -319,6 +321,26 @@
           '<button class="btn btn-danger btn-sm" type="button" data-del="' + p.id + '">Hapus</button>' +
           "</div></td></tr>";
       }).join("");
+
+      if (pmWrap) {
+        pmWrap.innerHTML = products.map(function (p) {
+          var stockClass = p.stock <= 30 ? "stock-low" : "stock-ok";
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<div><strong class="admin-m-title">' + escapeHtml(p.name) + '</strong><div class="admin-m-sub">#' + p.id + ' \u2022 ' + escapeHtml(p.tag) + "</div></div>" +
+              '<span class="badge-pill">' + escapeHtml(p.badge) + "</span>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<span>Stok: <strong class="' + stockClass + '">' + p.stock + '</strong> \u2022 Terjual: ' + p.sold + "</span>" +
+              '<strong class="price">' + rupiah(p.price) + "</strong>" +
+            "</div>" +
+            '<div class="admin-m-actions">' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-edit="' + p.id + '">Edit</button>' +
+              '<button class="btn btn-danger btn-sm" type="button" data-del="' + p.id + '">Hapus</button>' +
+            "</div>" +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
@@ -335,8 +357,10 @@
       var coupons = res.data.coupons;
       $("tab-coupons-count").textContent = coupons.length;
       var body = $("coupons-body");
+      var cmWrap = $("coupons-mobile-wrap");
       if (coupons.length === 0) {
         body.innerHTML = '<tr><td colspan="7"><div class="empty-state">Belum ada kupon. Tambahkan di sini — pelanggan bisa memakainya di keranjang.</div></td></tr>';
+        if (cmWrap) cmWrap.innerHTML = '<div class="empty-state">Belum ada kupon.</div>';
         return;
       }
       var today = new Date().toISOString().slice(0, 10);
@@ -357,6 +381,29 @@
           '<button class="btn btn-danger btn-sm" type="button" data-cdel="' + escapeHtml(c.code) + '">Hapus</button>' +
           "</div></td></tr>";
       }).join("");
+
+      if (cmWrap) {
+        cmWrap.innerHTML = coupons.map(function (c) {
+          var expired = c.expires_at && c.expires_at < today;
+          var nilai = c.type === "percent" ? c.value + "%" : rupiah(c.value);
+          var kuota = c.max_uses > 0 ? c.used_count + " / " + c.max_uses : c.used_count + " / \u221e";
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<span class="badge-pill mono" style="font-size:.82rem">' + escapeHtml(c.code) + "</span>" +
+              '<strong class="price">' + nilai + "</strong>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<span class="muted">Min: ' + (c.min_order > 0 ? rupiah(c.min_order) : "0") + " \u2022 Kuota: " + kuota + "</span>" +
+              '<span class="badge-pill ' + (c.active ? "" : "badge-off") + '">' + (c.active ? "Aktif" : "Nonaktif") + "</span>" +
+            "</div>" +
+            '<div class="admin-m-actions">' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-active="' + escapeHtml(c.code) + '">' + (c.active ? "Nonaktifkan" : "Aktifkan") + "</button>" +
+              '<button class="btn btn-ghost btn-sm" type="button" data-cedit="' + escapeHtml(c.code) + '">Edit</button>"' +
+              '<button class="btn btn-danger btn-sm" type="button" data-cdel="' + escapeHtml(c.code) + '">Hapus</button>' +
+            "</div>" +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
@@ -1072,8 +1119,8 @@
       .finally(function () { btn.disabled = false; });
   });
 
-  /* product actions */
-  $("products-body").addEventListener("click", function (e) {
+  /* product actions (desktop table & mobile cards) */
+  $("panel-products").addEventListener("click", function (e) {
     var edit = e.target.closest("[data-edit]");
     var del = e.target.closest("[data-del]");
     if (edit) {
@@ -1158,7 +1205,8 @@
       .finally(function () { btn.disabled = false; });
   });
 
-  $("coupons-body").addEventListener("click", function (e) {
+  /* coupon actions (desktop table & mobile cards) */
+  $("panel-coupons").addEventListener("click", function (e) {
     var toggle = e.target.closest("[data-active]");
     var edit = e.target.closest("[data-cedit]");
     var del = e.target.closest("[data-cdel]");
@@ -1211,8 +1259,10 @@
       var refs = res.data.referrals;
       $("tab-referrals-count").textContent = refs.length;
       var body = $("referrals-body");
+      var rmWrap = $("referrals-mobile-wrap");
       if (refs.length === 0) {
         body.innerHTML = '<tr><td colspan="6"><div class="empty-state">Belum ada kode referensi.</div></td></tr>';
+        if (rmWrap) rmWrap.innerHTML = '<div class="empty-state">Belum ada kode referensi.</div>';
         return;
       }
       body.innerHTML = refs.map(function (r) {
@@ -1227,6 +1277,25 @@
           '<button class="btn btn-danger btn-sm" type="button" data-r-del="' + escapeHtml(r.code) + '">Hapus</button>' +
           "</div></td></tr>";
       }).join("");
+
+      if (rmWrap) {
+        rmWrap.innerHTML = refs.map(function (r) {
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<strong class="mono" style="color:var(--volt);font-size:.92rem">' + escapeHtml(r.code) + "</strong>" +
+              '<span class="badge-pill ' + (r.active ? "" : "badge-off") + '">' + (r.active ? "Aktif" : "Nonaktif") + "</span>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<div><strong class="admin-m-title">' + escapeHtml(r.owner_name) + '</strong><div class="admin-m-sub">' + escapeHtml(r.owner_email) + "</div></div>" +
+              '<span class="muted">Terpakai: ' + r.used_count + " / " + (r.max_uses > 0 ? r.max_uses : "\u221e") + "</span>" +
+            "</div>" +
+            '<div class="admin-m-actions">' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-r-active="' + escapeHtml(r.code) + '">' + (r.active ? "Nonaktifkan" : "Aktifkan") + "</button>" +
+              '<button class="btn btn-danger btn-sm" type="button" data-r-del="' + escapeHtml(r.code) + '">Hapus</button>' +
+            "</div>" +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
@@ -1261,7 +1330,7 @@
     }).catch(function () { toast("Gagal terhubung.", true); });
   });
 
-  $("referrals-body").addEventListener("click", function (e) {
+  $("panel-referrals").addEventListener("click", function (e) {
     var toggle = e.target.closest("[data-r-active]");
     var del = e.target.closest("[data-r-del]");
     if (toggle) {
@@ -1306,9 +1375,11 @@
       if (!res.ok) return toast(res.data.error || "Gagal memuat flash sale.", true);
       var sales = res.data.flashSales;
       var body = $("flash-body");
+      var fmWrap = $("flash-mobile-wrap");
       var now = new Date().toISOString().slice(0, 19).replace("T", " ");
       if (sales.length === 0) {
         body.innerHTML = '<tr><td colspan="6"><div class="empty-state">Belum ada flash sale.</div></td></tr>';
+        if (fmWrap) fmWrap.innerHTML = '<div class="empty-state">Belum ada flash sale.</div>';
         return;
       }
       body.innerHTML = sales.map(function (f) {
@@ -1325,6 +1396,27 @@
           '<button class="btn btn-danger btn-sm" type="button" data-f-del="' + f.id + '">Hapus</button>' +
           "</div></td></tr>";
       }).join("");
+
+      if (fmWrap) {
+        fmWrap.innerHTML = sales.map(function (f) {
+          var running = f.active === 1 && f.starts_at <= now && f.ends_at > now;
+          var statusTxt = running ? "Berjalan" : (f.active === 0 ? "Nonaktif" : "Terjadwal");
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<strong class="admin-m-title">' + escapeHtml(f.name) + "</strong>" +
+              '<span class="chip chip-flash">' + f.discount_percent + "% OFF</span>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<span class="admin-m-sub">' + escapeHtml(fmtLocal(f.starts_at)) + " &rarr; " + escapeHtml(fmtLocal(f.ends_at)) + "</span>" +
+              '<span class="badge-pill ' + (running ? "badge-live" : (f.active === 0 ? "badge-off" : "")) + '">' + statusTxt + "</span>" +
+            "</div>" +
+            '<div class="admin-m-actions">' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-f-active="' + f.id + '">' + (f.active === 1 ? "Nonaktifkan" : "Aktifkan") + "</button>" +
+              '<button class="btn btn-danger btn-sm" type="button" data-f-del="' + f.id + '">Hapus</button>' +
+            "</div>" +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
@@ -1366,7 +1458,7 @@
     }).catch(function () { toast("Gagal terhubung.", true); });
   });
 
-  $("flash-body").addEventListener("click", function (e) {
+  $("panel-flash").addEventListener("click", function (e) {
     var toggle = e.target.closest("[data-f-active]");
     var del = e.target.closest("[data-f-del]");
     if (toggle) {
@@ -1404,8 +1496,10 @@
       var drops = res.data.drops || [];
       var now = new Date().toISOString().slice(0, 19).replace("T", " ");
       var body = $("drops-body");
+      var dmWrap = $("drops-mobile-wrap");
       if (drops.length === 0) {
         body.innerHTML = '<tr><td colspan="5"><div class="empty-state">Belum ada drop terjadwal.</div></td></tr>';
+        if (dmWrap) dmWrap.innerHTML = '<div class="empty-state">Belum ada drop terjadwal.</div>';
         return;
       }
       body.innerHTML = drops.map(function (d) {
@@ -1422,6 +1516,28 @@
           '<button class="btn btn-danger btn-sm" type="button" data-d-del="' + d.id + '">Hapus</button>' +
           "</div></td></tr>";
       }).join("");
+
+      if (dmWrap) {
+        dmWrap.innerHTML = drops.map(function (d) {
+          var upcoming = d.release_at > now;
+          var live = d.release_at <= now;
+          var statusTxt = upcoming ? (d.queue_enabled ? "Antrian \u2022 Akan rilis" : "Terjadwal") : (d.queue_enabled ? "Berlangsung \u2022 Antrian" : "Berlangsung");
+          var badgeCls = live ? "badge-live" : "";
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<strong class="admin-m-title">' + escapeHtml(d.name) + "</strong>" +
+              '<span class="badge-pill ' + badgeCls + '">' + statusTxt + "</span>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<span class="admin-m-sub">' + (d.product_name ? escapeHtml(d.product_name) : "Semua produk") + " \u2022 " + escapeHtml(fmtLocal(d.release_at)) + "</span>" +
+              (d.queue_enabled ? '<span class="chip chip-queue">Mode Antrian</span>' : "") +
+            "</div>" +
+            '<div class="admin-m-actions">' +
+              '<button class="btn btn-danger btn-sm" type="button" data-d-del="' + d.id + '">Hapus</button>' +
+            "</div>" +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
@@ -1471,7 +1587,7 @@
     }).catch(function () { toast("Gagal terhubung.", true); });
   });
 
-  $("drops-body").addEventListener("click", function (e) {
+  $("panel-drops").addEventListener("click", function (e) {
     var del = e.target.closest("[data-d-del]");
     if (!del) return;
     if (!confirm("Hapus drop ini? Pesanan yang sudah masuk tidak terpengaruh.")) return;
@@ -1495,8 +1611,10 @@
       if (!res.ok) return;
       var list = res.data.couriers || [];
       var body = $("couriers-body");
+      var kmWrap = $("couriers-mobile-wrap");
       if (list.length === 0) {
         body.innerHTML = '<tr><td colspan="5"><div class="empty-state">Belum ada kurir.</div></td></tr>';
+        if (kmWrap) kmWrap.innerHTML = '<div class="empty-state">Belum ada kurir.</div>';
         return;
       }
       body.innerHTML = list.map(function (c) {
@@ -1511,6 +1629,24 @@
           '<button class="btn btn-danger btn-sm" type="button" data-k-del="' + c.id + '">Hapus</button>' +
           "</div></td></tr>";
       }).join("");
+
+      if (kmWrap) {
+        kmWrap.innerHTML = list.map(function (c) {
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<strong class="admin-m-title">🛵 ' + escapeHtml(c.name) + "</strong>" +
+              '<span class="badge-pill ' + (c.active ? "" : "badge-off") + '">' + (c.active ? "Aktif" : "Nonaktif") + "</span>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<span class="admin-m-sub">' + (c.cod_km > 0 ? "COD s.d. " + c.cod_km + " km" : "Non-COD") + "</span>" +
+            "</div>" +
+            '<div class="admin-m-actions">' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-k-active="' + c.id + '">' + (c.active ? "Nonaktifkan" : "Aktifkan") + "</button>" +
+              '<button class="btn btn-danger btn-sm" type="button" data-k-del="' + c.id + '">Hapus</button>' +
+            "</div>" +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
@@ -1555,7 +1691,7 @@
     }).catch(function () { toast("Gagal terhubung.", true); });
   });
 
-  $("couriers-body").addEventListener("click", function (e) {
+  $("panel-couriers").addEventListener("click", function (e) {
     var toggle = e.target.closest("[data-k-active]");
     var del = e.target.closest("[data-k-del]");
     if (toggle) {
@@ -1586,8 +1722,10 @@
       if (!res.ok) return;
       var members = res.data.members || [];
       var body = $("members-body");
+      var mmWrap = $("members-mobile-wrap");
       if (members.length === 0) {
         body.innerHTML = '<tr><td colspan="6"><div class="empty-state">Belum ada member \u2014 poin diberikan otomatis saat checkout.</div></td></tr>';
+        if (mmWrap) mmWrap.innerHTML = '<div class="empty-state">Belum ada member.</div>';
         return;
       }
       body.innerHTML = members.map(function (m) {
@@ -1600,6 +1738,25 @@
           '<td class="muted">' + (m.birth_month ? String(m.birth_month).padStart(2, "0") + "-" + String(m.birth_day).padStart(2, "0") : "\u2014") + "</td>" +
           "</tr>";
       }).join("");
+
+      if (mmWrap) {
+        mmWrap.innerHTML = members.map(function (m) {
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<strong class="admin-m-title">👤 ' + escapeHtml(m.name) + "</strong>" +
+              '<span class="badge-pill">' + escapeHtml(m.level || "Bronze") + "</span>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<span class="admin-m-sub">' + escapeHtml(m.email) + "</span>" +
+              '<strong class="price">' + Number(m.points || 0).toLocaleString("id-ID") + " Poin</strong>" +
+            "</div>" +
+            '<div class="admin-m-mid" style="font-size:.76rem;color:var(--muted)">' +
+              "<span>Total Order: " + (m.orders || 0) + "</span>" +
+              "<span>Ultah: " + (m.birth_month ? String(m.birth_month).padStart(2, "0") + "-" + String(m.birth_day).padStart(2, "0") : "-") + "</span>" +
+            "</div>" +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
@@ -1725,8 +1882,10 @@
       var rows = res.data.waitlist || [];
       $("waitlist-card").hidden = rows.length === 0;
       var body = $("waitlist-body");
+      var wmWrap = $("waitlist-mobile-wrap");
       if (rows.length === 0) {
         body.innerHTML = '<tr><td colspan="5"><div class="empty-state">Belum ada yang minta notifikasi restock.</div></td></tr>';
+        if (wmWrap) wmWrap.innerHTML = '<div class="empty-state">Belum ada yang minta notifikasi restock.</div>';
         return;
       }
       body.innerHTML = rows.map(function (w) {
@@ -1737,10 +1896,26 @@
           '<td class="muted mono" style="font-size:.74rem">' + new Date(w.created_at.replace(" ", "T")).toLocaleString("id-ID", { day: "2-digit", month: "short" }) + "</td>" +
           '<td>' + (w.notified ? "" : '<button class="btn btn-ghost btn-sm" type="button" data-w-notify="' + w.id + '">Tandai</button>') + "</td></tr>";
       }).join("");
+
+      if (wmWrap) {
+        wmWrap.innerHTML = rows.map(function (w) {
+          return '<div class="admin-m-card">' +
+            '<div class="admin-m-top">' +
+              '<strong class="admin-m-title">' + escapeHtml(w.product_name) + "</strong>" +
+              '<span class="badge-pill ' + (w.notified ? "badge-off" : "") + '">' + (w.notified ? "Dinotifikasi" : "Menunggu") + "</span>" +
+            "</div>" +
+            '<div class="admin-m-mid">' +
+              '<span class="admin-m-sub">' + escapeHtml(w.email) + "</span>" +
+              '<span class="muted mono" style="font-size:.74rem">' + new Date(w.created_at.replace(" ", "T")).toLocaleString("id-ID", { day: "2-digit", month: "short" }) + "</span>" +
+            "</div>" +
+            (w.notified ? "" : '<div class="admin-m-actions"><button class="btn btn-ghost btn-sm" type="button" data-w-notify="' + w.id + '">Tandai</button></div>') +
+          "</div>";
+        }).join("");
+      }
     });
   }
 
-  $("waitlist-body").addEventListener("click", function (e) {
+  $("waitlist-card").addEventListener("click", function (e) {
     var btn = e.target.closest("[data-w-notify]");
     if (!btn) return;
     api("/api/admin/restock-waitlist/" + btn.dataset.wNotify + "/notify", { method: "POST" }).then(function (res) {
