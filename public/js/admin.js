@@ -222,30 +222,106 @@
         });
         var items = (o.items || []).map(function (i) { return itemLabel(i); }).join("<br>");
         var couponChip = o.coupon_code ? '<div class="coupon-chip">Kupon: ' + escapeHtml(o.coupon_code) + "</div>" : "";
-        var statusBadge = '<span class="badge-status">' + (STATUS_LABELS[o.status] || o.status) + "</span>";
-        var resiBadge = (shipped && o.tracking_number) ? '<span class="chip mono" style="font-size:.72rem">Resi: ' + escapeHtml(o.tracking_number) + "</span>" : "";
+        var shipped = o.status === "shipped" || o.status === "delivered";
+        var resi = '<input class="resi-input' + (shipped ? "" : " disabled") + '" type="text" maxlength="60" ' +
+          'placeholder="' + (shipped ? "Nomor resi" : "Resi aktif saat dikirim") + '" ' +
+          'data-resi-id="' + o.id + '" value="' + escapeHtml(o.tracking_number || "") + '">';
+
+        // URL Titik Rumah Pelanggan
+        var navUrl = o.maps_url && o.maps_url.trim() ? o.maps_url.trim() : (o.lat && o.lng ? ("https://www.google.com/maps?q=" + o.lat + "," + o.lng) : ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(o.address || "Jakarta")));
+
+        // URL Rute dari Toko ke Rumah Pelanggan
+        var origin = (storeCfg && storeCfg.lat) ? (storeCfg.lat + "," + storeCfg.lng) : "-6.2087634,106.845599";
+        var dest = (o.lat && o.lng) ? (o.lat + "," + o.lng) : (o.maps_url || encodeURIComponent(o.address || "Jakarta"));
+        var routeUrl = "https://www.google.com/maps/dir/?api=1&origin=" + origin + "&destination=" + dest + "&travelmode=driving";
+
+        // 1-Klik Kirim Tugas ke WhatsApp Kurir
+        var waCourierText = "Halo Kurir KICKSTORM, tugas antar pesanan #" + o.id + ":\n" +
+          "👤 Pelanggan: " + o.customer_name + "\n" +
+          "📍 Alamat: " + o.address + "\n" +
+          "💰 Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
+          "🚀 Navigasi Rute: " + (o.maps_url || routeUrl);
+
+        // Action popup menu items
+        var actionItems = [];
+        
+        // 1. Riwayat Status
+        if ((o.history || []).length > 0) {
+          actionItems.push('<button class="action-item" type="button" data-history-id="' + o.id + '">📜 Riwayat Status</button>');
+        }
+        
+        // 2. Titik Rumah di GMaps
+        actionItems.push('<a class="action-item" target="_blank" rel="noopener" href="' + escapeHtml(navUrl) + '">📍 Titik Rumah</a>');
+        
+        // 3. Rute Navigasi GMaps
+        actionItems.push('<a class="action-item" target="_blank" rel="noopener" href="' + routeUrl + '">🗺️ Rute Navigasi</a>');
+        
+        // 4. WA Kurir
+        actionItems.push('<a class="action-item" target="_blank" rel="noopener" style="color:#25d366" href="https://wa.me/?text=' + encodeURIComponent(waCourierText) + '">📲 Kirim WA Kurir</a>');
+        
+        // 5. Radar / Live GPS Kurir
+        if (o.courier_share_url) {
+          actionItems.push('<a class="action-item" target="_blank" rel="noopener" style="color:var(--volt)" href="' + escapeHtml(o.courier_share_url) + '">📡 Radar Kurir</a>');
+        } else if (o.courier_lat && o.courier_lng) {
+          actionItems.push('<a class="action-item" target="_blank" rel="noopener" style="color:var(--volt)" href="https://www.google.com/maps?q=' + o.courier_lat + ',' + o.courier_lng + '">📡 Posisi GPS Kurir</a>');
+        }
+        
+        // 6. Set / Ubah Posisi Kurir
+        if (o.courier_id) {
+          actionItems.push('<button class="action-item" type="button" data-cloc-id="' + o.id + '">🛵 ' + (o.courier_lat ? "Ubah Posisi Kurir" : "Set Posisi Kurir") + '</button>');
+        }
+        
+        // 7. Cetak Label
+        actionItems.push('<button class="action-item" type="button" data-print-id="' + o.id + '">🏷️ Cetak Label Resi</button>');
+
+        var actionDropdown = '<details class="action-dropdown">' +
+          '<summary class="btn btn-ghost btn-sm action-summary">⚙️ Aksi &amp; Rute ▾</summary>' +
+          '<div class="action-menu-popup">' + actionItems.join("") + '</div>' +
+          '</details>';
+
         var payProofHighlight = (o.status === "awaiting_payment" && o.payment_proof)
-          ? '<button class="btn btn-primary btn-sm pay-btn" type="button" data-pay-id="' + o.id + '">💳 Cek Bukti</button>'
+          ? '<button class="btn btn-primary btn-sm pay-btn" type="button" data-pay-id="' + o.id + '">💳 Cek Bukti Bayar</button>'
           : "";
 
-        var statusCellHtml = '<div class="desktop-order-actions">' +
-          statusBadge +
-          resiBadge +
-          payProofHighlight +
-          '<button class="btn btn-ghost btn-sm od-open-btn" type="button" data-od-id="' + o.id + '">⚙️ Kelola &amp; Aksi &rarr;</button>' +
-          "</div>";
+        var extraChips = (o.shipping > 0 ? '<span class="chip">Ongkir ' + rupiah(o.shipping) + "</span>" : "") +
+          (o.referral_code ? '<span class="chip chip-referral">Referral ' + escapeHtml(o.referral_code) + "</span>" : "") +
+          (o.flash_sale_id ? '<span class="chip chip-flash">Flash Sale</span>' : "") +
+          (o.payment_method === "cod" ? '<span class="chip chip-cod">COD</span>' : "") +
+          (o.queue_no ? '<span class="chip chip-queue">Antrean #' + o.queue_no + "</span>" : "");
 
-        return '<tr class="desktop-order-row" data-od-id="' + o.id + '" style="cursor:pointer">' +
+        var totalCell = '<div class="price">' + rupiah(o.total) + "</div>" +
+          (extraChips ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' + extraChips + "</div>" : "");
+
+        var timeline = ((o.history || []).length > 0
+          ? '<tr class="history-row" id="history-row-' + o.id + '" hidden><td colspan="6"><div class="order-timeline">' +
+            o.history.map(function (h, i) {
+              var when = new Date(h.changed_at.replace(" ", "T")).toLocaleString("id-ID", {
+                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+              });
+              return '<div class="tl-step' + (i === o.history.length - 1 ? " current" : "") + '">' +
+                '<span class="tl-dot"></span>' +
+                '<div><strong>' + (STATUS_LABELS[h.to_status] || h.to_status) + "</strong>" +
+                '<span class="muted" style="font-size:.74rem;display:block">' + when + "</span></div></div>";
+            }).join('<span class="tl-arrow">\u2192</span>') +
+            "</div></td></tr>"
+          : "");
+
+        var statusCellHtml = '<div class="status-cell">' +
+          orderStatusSelect(o.id, o.status) +
+          (shipped ? resi : "") +
+          payProofHighlight +
+          actionDropdown +
+          '</div>';
+
+          return "<tr>" +
           '<td class="mono" style="white-space:nowrap"><strong>#' + o.id + '</strong><br><span class="muted" style="font-size:.74rem">' + tgl + "</span></td>" +
           '<td><div class="customer-cell">' + avatar(o.customer_name) +
           '<div><div class="c-name">' + escapeHtml(o.customer_name) + '</div><span class="muted email-click" style="font-size:.74rem;cursor:pointer" data-email="' + escapeHtml(o.email) + '" title="Lihat profil pelanggan">' + escapeHtml(o.email) + "</span></div></div></td>" +
           '<td><div class="items-cell">' + items + "</div>" + couponChip + "</td>" +
           '<td>' + totalCell + "</td>" +
           '<td class="muted" style="font-size:.72rem;max-width:200px;white-space:pre-wrap">' + (o.notes || "-") + "</td>" +
-          '<td>' + statusCellHtml + "</td>" +
-          "</tr>";
-      }).join("");
-tr>" +
+          '<td>' + statusCellHtml + '</td>' +
+          "</tr>" +
           timeline;
       }).join("");
 
@@ -509,22 +585,28 @@ tr>" +
     });
   });
 
-  /* orders desktop: klik baris / kelola → buka modal detail pesanan */
+  /* orders: klik email → profil pelanggan & auto-close action-dropdown */
   document.getElementById("orders-body").addEventListener("click", function (e) {
+    var actionItem = e.target.closest(".action-item");
+    if (actionItem) {
+      var details = actionItem.closest("details");
+      if (details) details.removeAttribute("open");
+    }
     var email = e.target.closest("[data-email]");
-    if (email) {
-      e.stopPropagation();
-      return renderCustomerProfile(email.dataset.email);
+    if (email) renderCustomerProfile(email.dataset.email);
+    var hist = e.target.closest("[data-history-id]");
+    if (hist) {
+      var row = document.getElementById("history-row-" + hist.dataset.historyId);
+      if (row) row.hidden = !row.hidden;
     }
+    var loc = e.target.closest("[data-location-id]");
+    if (loc) openLocation(Number(loc.dataset.locationId));
     var pay = e.target.closest("[data-pay-id]");
-    if (pay) {
-      e.stopPropagation();
-      return openPayProof(Number(pay.dataset.payId));
-    }
-    var row = e.target.closest("[data-od-id]");
-    if (row) {
-      openOrderDetailModal(Number(row.dataset.odId));
-    }
+    if (pay) openPayProof(Number(pay.dataset.payId));
+    var cloc = e.target.closest("[data-cloc-id]");
+    if (cloc) openCourierLoc(Number(cloc.dataset.clocId));
+    var pr = e.target.closest("[data-print-id]");
+    if (pr) printLabel(Number(pr.dataset.printId));
   });
 
   /* ---- Order Detail Modal (for Mobile & Quick Action) ---- */
