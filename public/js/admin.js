@@ -1607,8 +1607,10 @@ var shipped = o.status === "shipped" || o.status === "delivered";
         var txt = "Pesanan baru #" + d.id + " \u2014 " + (d.customer || "?") + " (" + rupiah(d.total || 0) + ")";
         toast(txt);
         beep();
-        if (Notification.permission === "granted") {
-          new Notification("KICKSTORM \u2014 Pesanan baru", { body: "#" + d.id + " " + (d.customer || "") + " \u2022 " + rupiah(d.total || 0) });
+        if (typeof window !== "undefined" && window.Notification && window.Notification.permission === "granted") {
+          try {
+            new window.Notification("KICKSTORM \u2014 Pesanan baru", { body: "#" + d.id + " " + (d.customer || "") + " \u2022 " + rupiah(d.total || 0) });
+          } catch (e) {}
         }
         if (document.visibilityState === "hidden") refresh();
       };
@@ -1616,8 +1618,10 @@ var shipped = o.status === "shipped" || o.status === "delivered";
     } catch (e) { }
   }
 
-  if (token && Notification && Notification.permission === "default") {
-    Notification.requestPermission().catch(function () { });
+  if (token && typeof window !== "undefined" && window.Notification && window.Notification.permission === "default") {
+    try {
+      window.Notification.requestPermission().catch(function () { });
+    } catch (e) {}
   }
 
   if (token) {
