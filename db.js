@@ -343,4 +343,27 @@ if (courierCount === 0) {
   tx2();
 }
 
+let tursoClient = null;
+if (process.env.TURSO_DATABASE_URL) {
+  try {
+    const { createClient } = require("@libsql/client");
+    tursoClient = createClient({
+      url: process.env.TURSO_DATABASE_URL,
+      authToken: process.env.TURSO_AUTH_TOKEN
+    });
+  } catch (e) {
+    console.warn("Turso client init notice:", e.message);
+  }
+}
+
+function pushToTurso(sql, args = []) {
+  if (!tursoClient) return;
+  tursoClient.execute({ sql, args }).catch((err) => {
+    console.warn("Turso sync notice:", err.message);
+  });
+}
+
+db.pushToTurso = pushToTurso;
+db.tursoClient = tursoClient;
+
 module.exports = db;
