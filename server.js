@@ -180,9 +180,51 @@ const findToken = db.prepare("SELECT token_hash FROM admin_tokens WHERE token_ha
 const insertToken = db.prepare("INSERT INTO admin_tokens (token_hash, created_at, expires_at) VALUES (?, datetime('now'), datetime('now', ?))");
 const deleteToken = db.prepare("DELETE FROM admin_tokens WHERE token_hash = ?");
 
+function createAdminToken() {
+  const raw = crypto.randomBytes(24).toString("hex");
+  const exp = Date.now() + ADMIN_TOKEN_TTL_HOURS * 3600 * 1000;
+  const payload = Buffer.from(JSON.stringify({ r: "admin", exp, id: raw, iat: Date.now() })).toString("base64url");
+  const sig = crypto.createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+function verifyAdminToken(tokenStr) {
+  if (!tokenStr || typeof tokenStr !== "string") return false;
+  const h = hashToken(tokenStr);
+  const inDb = findToken.get(h);
+  if (inDb) return true;
+
+  // Check if token table exists in DB (or if expired in DB)
+  const expiredRow = db.prepare("SELECT token_hash FROM admin_tokens WHERE token_hash = ?").get(h);
+  if (expiredRow) return false;
+
+  // Serverless cold-start fallback: verify HMAC signature when DB was reset
+  const tokenCount = db.prepare("SELECT COUNT(*) AS n FROM admin_tokens").get().n;
+  const s = getSettings();
+  const revokedBefore = Number(s.session_epoch) || 0;
+
+  if (tokenCount === 0 && revokedBefore === 0) {
+    const parts = tokenStr.split(".");
+    if (parts.length === 2) {
+      const [payload, sig] = parts;
+      const expectedSig = crypto.createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("base64url");
+      if (sig === expectedSig) {
+        try {
+          const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+          if (data.r === "admin" && data.exp > Date.now()) {
+            try { insertToken.run(h, `+${ADMIN_TOKEN_TTL_HOURS} hours`); } catch (e) {}
+            return true;
+          }
+        } catch (e) {}
+      }
+    }
+  }
+  return false;
+}
+
 function requireAdmin(req, res, next) {
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "") || String(req.query.token || "");
-  if (!token || !findToken.get(hashToken(token))) {
+  if (!token || !verifyAdminToken(token)) {
     return res.status(401).json({ error: "Sesi admin tidak valid atau kedaluwarsa." });
   }
   next();
@@ -820,9 +862,11 @@ app.post("/api/admin/login", (req, res) => {
   if (!safeEqual(password || "", ADMIN_PASSWORD)) {
     return res.status(401).json({ error: "Password salah." });
   }
-  purgeExpiredTokens.run();
-  const token = crypto.randomBytes(32).toString("hex");
-  insertToken.run(hashToken(token), `+${ADMIN_TOKEN_TTL_HOURS} hours`);
+  try { purgeExpiredTokens.run(); } catch (e) {}
+  const token = createAdminToken();
+  try {
+    insertToken.run(hashToken(token), `+${ADMIN_TOKEN_TTL_HOURS} hours`);
+  } catch (e) {}
   res.json({ token, ttlHours: ADMIN_TOKEN_TTL_HOURS, expiresAt: new Date(Date.now() + ADMIN_TOKEN_TTL_HOURS * 3600000).toISOString() });
 });
 
@@ -834,6 +878,7 @@ app.post("/api/admin/logout", requireAdmin, (req, res) => {
 
 app.post("/api/admin/logout-all", requireAdmin, (req, res) => {
   db.prepare("DELETE FROM admin_tokens").run();
+  db.prepare("INSERT INTO settings (key, value) VALUES ('session_epoch', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(Date.now()));
   res.json({ ok: true, message: "Semua sesi admin diakhiri." });
 });
 
