@@ -186,9 +186,13 @@ import * as THREE from "/vendor/three.module.js";
     host.addEventListener("pointerup", endDrag);
     host.addEventListener("pointercancel", endDrag);
 
+    var heroFrameId;
+
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
+        var wasRunning = running;
         running = entries[0].isIntersecting;
+        if (running && !wasRunning) tick(); // resume loop
       }, { threshold: 0 }).observe(wrap);
     }
 
@@ -211,8 +215,8 @@ import * as THREE from "/vendor/three.module.js";
 
     // ---- loop ----
     function tick() {
-      requestAnimationFrame(tick);
-      if (!running) return;
+      if (!running) return; // fully stop RAF when invisible
+      heroFrameId = requestAnimationFrame(tick);
       if (!dragging && !reduce) {
         if (Math.abs(vel) > 0.0004) {
           shoe.rotation.y += vel;

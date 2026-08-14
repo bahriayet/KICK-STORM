@@ -43,12 +43,22 @@ function pointsForOrder(total) {
   return Math.max(0, Math.floor(Number(total) / 10000));
 }
 
+const _settingsStmt = db.prepare("SELECT key, value FROM settings");
+let _settingsCache = null;
+let _settingsCacheAt = 0;
+const SETTINGS_CACHE_TTL = 5000; // 5 seconds
+
 function getSettings() {
-  const rows = db.prepare("SELECT key, value FROM settings").all();
+  const now = Date.now();
+  if (_settingsCache && (now - _settingsCacheAt) < SETTINGS_CACHE_TTL) return _settingsCache;
+  const rows = _settingsStmt.all();
   const s = {};
   for (const r of rows) s[r.key] = r.value;
+  _settingsCache = s;
+  _settingsCacheAt = now;
   return s;
 }
+function invalidateSettingsCache() { _settingsCache = null; }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -899,6 +909,7 @@ app.post("/api/admin/logout", requireAdmin, (req, res) => {
 app.post("/api/admin/logout-all", requireAdmin, (req, res) => {
   db.prepare("DELETE FROM admin_tokens").run();
   db.prepare("INSERT INTO settings (key, value) VALUES ('session_epoch', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(Math.floor(Date.now() / 1000)));
+  invalidateSettingsCache();
   res.json({ ok: true, message: "Semua sesi admin diakhiri." });
 });
 
@@ -1451,6 +1462,7 @@ app.patch("/api/admin/settings", requireAdmin, (req, res) => {
     for (const [k, v] of Object.entries(out)) update.run(k, v);
   });
   tx();
+  invalidateSettingsCache();
   res.json({ settings: getSettings() });
 });
 

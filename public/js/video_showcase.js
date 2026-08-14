@@ -108,8 +108,11 @@
         '<div class="showcase-viewport">' +
           '<div class="showcase-layers" id="showcase-layers">' +
             SCENES.map(function (s, i) {
+              var imgAttr = i === 0
+                ? 'src="' + s.src + '"'
+                : 'src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'1\' height=\'1\'/%3E" data-src="' + s.src + '"';
               return '<div class="showcase-slide ' + (i === 0 ? "active" : "") + '" data-index="' + i + '">' +
-                '<img src="' + s.src + '" alt="' + s.title + '" class="showcase-img" draggable="false" />' +
+                '<img ' + imgAttr + ' alt="' + s.title + '" class="showcase-img" draggable="false" />' +
                 '<div class="showcase-shimmer"></div>' +
                 '<div class="showcase-scanline"></div>' +
                 '<div class="showcase-hotspots">' +
@@ -123,6 +126,7 @@
                 '</div>' +
               '</div>';
             }).join("") +
+
           '</div>' +
           '<div class="showcase-flare"></div>' +
           '<div class="showcase-lightning" id="showcase-lightning"></div>' +
@@ -191,6 +195,14 @@
 
       slides.forEach(function (sl, i) {
         sl.classList.toggle("active", i === idx);
+        // Lazy-load image on first visit
+        if (i === idx) {
+          var img = sl.querySelector(".showcase-img");
+          if (img && img.dataset.src) {
+            img.src = img.dataset.src;
+            delete img.dataset.src;
+          }
+        }
       });
 
       angleChips.forEach(function (ch, i) {
