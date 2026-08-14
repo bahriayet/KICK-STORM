@@ -142,12 +142,11 @@ select.field option{background:var(--surface)}
 .tab{
   background:transparent;border:none;color:var(--muted);cursor:pointer;font-weight:600;font-size:.9rem;
   padding:10px 18px;border-radius:var(--radius-sm) var(--radius-sm) 0 0;border-bottom:2px solid transparent;
-  transition:color .2s,border-color .2s;display:inline-flex;align-items:center;gap:6px;
+  transition:color .2s,border-color .2s;
 }
 .tab:hover{color:var(--text)}
 .tab.active{color:var(--volt);border-bottom-color:var(--volt)}
 .tab span{opacity:.6;font-size:.72rem;margin-left:2px}
-.tab .tab-icon{font-size:1rem;line-height:1}
 
 .panel{display:none;padding:24px clamp(16px,3vw,36px) 60px;max-width:1400px;margin:0 auto}
 .panel.active{display:block}
@@ -158,6 +157,15 @@ thead th{
   text-align:left;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
   padding:10px 12px;border-bottom:1px solid var(--stroke-2);white-space:nowrap;
 }
+tbody td{padding:12px;border-bottom:1px solid var(--stroke);vertical-align:top}
+tbody tr{transition:background-color .15s}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+.table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--stroke);border-radius:var(--radius-md);padding:6px}
+.mono{font-variant-numeric:tabular-nums}
+.price{color:var(--volt);font-weight:600;white-space:nowrap}
+.name-cell{font-weight:700;line-height:1.4}
+.muted{color:var(--muted)}
+.stock-low{color:var(--red);font-weight:600}
 .stock-ok{color:var(--volt)}
 
 .badge-pill{
@@ -356,7 +364,7 @@ table .btn{padding:6px 12px;font-size:.75rem}
 }
 
 /* ==========================================================================
-   RESPONSIVE LAYOUT & SMARTPHONE OPTIMIZATIONS
+   ADMIN MOBILE & SMARTPHONE SUPPORT (ZERO HORIZONTAL SCROLL)
    ========================================================================== */
 html, body {
   overflow-x: hidden !important;
@@ -365,54 +373,105 @@ html, body {
   box-sizing: border-box;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 768px) {
   body {
     padding: 0 0 calc(40px + env(safe-area-inset-bottom)) 0;
     overflow-x: hidden !important;
   }
 
-  .admin-sidebar {
-    position: fixed;
+  .topbar {
+    position: sticky;
     top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    max-width: 85vw;
-    transform: translateX(-100%);
-    z-index: 2000;
-    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.85);
-  }
-  .admin-sidebar.open {
-    transform: translateX(0);
-  }
-  .sidebar-close-btn {
-    display: flex;
+    z-index: 1000;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 12px 16px !important;
+    background: rgba(10, 10, 12, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--stroke-2);
   }
 
   .admin-menu-toggle {
-    display: flex;
+    display: flex !important;
   }
 
-  .topbar-heading {
-    font-size: 1.15rem;
-  }
-  .live-text {
+  .topbar-right {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(14, 14, 18, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 2px solid var(--stroke-2);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
+    padding: 16px;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    z-index: 999;
+    animation: slideDownMenu 0.22s cubic-bezier(0.2, 0, 0, 1);
   }
-  .live-pill {
-    padding: 5px 8px;
+
+  .topbar-right.open {
+    display: flex !important;
+  }
+
+  @keyframes slideDownMenu {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .topbar-right .btn {
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 0.92rem !important;
+    justify-content: center !important;
+    text-align: center !important;
+    border-radius: var(--radius-sm);
   }
 
   .stats-row {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
-    padding: 14px 12px 0 !important;
+    padding: 16px 12px 0 !important;
     width: 100% !important;
     max-width: 100% !important;
   }
 
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding: 0 12px 8px !important;
+    margin: 16px 0 0 !important;
+    scrollbar-width: none;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tab {
+    white-space: nowrap;
+    padding: 10px 16px;
+    min-height: 44px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
   .panel {
-    padding: 14px 12px 60px !important;
+    padding: 16px 12px 40px !important;
     width: 100% !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
