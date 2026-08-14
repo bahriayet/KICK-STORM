@@ -87,9 +87,71 @@ select.field option{background:var(--surface)}
 .admin-sidebar{display:none}
 .sidebar-backdrop{display:none}
 
-.analytics-section{width:100%}
-.analytics-toggle-btn{display:none}
-.analytics-content{display:block}
+.analytics-section{
+  width: 100%;
+  padding: 0 clamp(16px, 3vw, 36px);
+  margin-top: 14px;
+}
+.analytics-toggle-btn {
+  display: flex !important;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: var(--surface);
+  border: 1px solid var(--stroke-2);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.analytics-toggle-btn:hover {
+  border-color: var(--stroke);
+  background: var(--surface-2);
+}
+.analytics-section.open .analytics-toggle-btn {
+  border-color: var(--volt);
+  color: var(--volt);
+}
+.toggle-btn-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toggle-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.toggle-chevron {
+  font-size: 0.95rem;
+  transition: transform 0.25s ease;
+  color: var(--muted);
+}
+.analytics-section.open .toggle-chevron {
+  transform: rotate(180deg);
+  color: var(--volt);
+}
+.analytics-content {
+  display: none;
+  margin-top: 12px;
+  animation: fadeInAccordion 0.22s ease-out;
+}
+.analytics-section.open .analytics-content {
+  display: block;
+}
+@keyframes fadeInAccordion {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .admin-menu-toggle {
   display: none;
@@ -341,7 +403,33 @@ table .btn{padding:6px 12px;font-size:.75rem}
 /* --- Chip & badge baru --- */
 .chip-cod{background:rgba(245,197,66,.12);border-color:rgba(245,197,66,.4);color:#f5c542}
 .chip-queue{background:rgba(214,255,63,.1);border-color:rgba(214,255,63,.4);color:var(--volt)}
-.status-cell{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.status-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.desktop-order-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.od-open-btn {
+  font-size: 0.78rem !important;
+  padding: 6px 12px !important;
+  border-radius: var(--radius-sm) !important;
+  font-weight: 600 !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--stroke-2) !important;
+  color: var(--text) !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease !important;
+}
+.od-open-btn:hover {
+  border-color: var(--volt) !important;
+  color: var(--volt) !important;
+  background: rgba(214, 255, 63, 0.1) !important;
+}
 
 /* --- Compact Order Action Dropdown --- */
 .orders-desktop-wrap { display: block; }
