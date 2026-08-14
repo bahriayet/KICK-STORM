@@ -222,23 +222,18 @@
         });
         var items = (o.items || []).map(function (i) { return itemLabel(i); }).join("<br>");
         var couponChip = o.coupon_code ? '<div class="coupon-chip">Kupon: ' + escapeHtml(o.coupon_code) + "</div>" : "";
-var shipped = o.status === "shipped" || o.status === "delivered";
+        var shipped = o.status === "shipped" || o.status === "delivered";
         var resi = '<input class="resi-input' + (shipped ? "" : " disabled") + '" type="text" maxlength="60" ' +
           'placeholder="' + (shipped ? "Nomor resi" : "Resi aktif saat dikirim") + '" ' +
           'data-resi-id="' + o.id + '" value="' + escapeHtml(o.tracking_number || "") + '">';
-        var historyBtn = (o.history || []).length > 0
-          ? '<button class="btn btn-ghost btn-sm history-toggle" type="button" data-history-id="' + o.id + '">Riwayat</button>'
-          : "";
 
         // URL Titik Rumah Pelanggan
         var navUrl = o.maps_url && o.maps_url.trim() ? o.maps_url.trim() : (o.lat && o.lng ? ("https://www.google.com/maps?q=" + o.lat + "," + o.lng) : ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(o.address || "Jakarta")));
-        var locBtn = '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" title="Buka titik alamat di Google Maps" href="' + escapeHtml(navUrl) + '">📍 Titik Rumah</a>';
 
         // URL Rute dari Toko ke Rumah Pelanggan
         var origin = (storeCfg && storeCfg.lat) ? (storeCfg.lat + "," + storeCfg.lng) : "-6.2087634,106.845599";
         var dest = (o.lat && o.lng) ? (o.lat + "," + o.lng) : (o.maps_url || encodeURIComponent(o.address || "Jakarta"));
         var routeUrl = "https://www.google.com/maps/dir/?api=1&origin=" + origin + "&destination=" + dest + "&travelmode=driving";
-        var routeBtn = '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" title="Buka rute navigasi Google Maps" href="' + routeUrl + '">🗺️ Rute GMaps</a>';
 
         // 1-Klik Kirim Tugas ke WhatsApp Kurir
         var waCourierText = "Halo Kurir KICKSTORM, tugas antar pesanan #" + o.id + ":\n" +
@@ -246,30 +241,57 @@ var shipped = o.status === "shipped" || o.status === "delivered";
           "📍 Alamat: " + o.address + "\n" +
           "💰 Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
           "🚀 Navigasi Rute: " + (o.maps_url || routeUrl);
-        var waCourierBtn = '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" style="color:#25d366" title="Kirim rute & detail ke WA Kurir" href="https://wa.me/?text=' + encodeURIComponent(waCourierText) + '">📲 WA Kurir</a>';
 
-        // Pemantauan Radar Kurir Live
-        var radarBtn = "";
-        if (o.courier_share_url) {
-          radarBtn = '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" style="color:var(--volt)" title="Buka Radar Google Maps Kurir" href="' + escapeHtml(o.courier_share_url) + '">📡 Radar Kurir</a>';
-        } else if (o.courier_lat && o.courier_lng) {
-          radarBtn = '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" style="color:var(--volt)" title="Buka Posisi Live GPS Kurir" href="https://www.google.com/maps?q=' + o.courier_lat + ',' + o.courier_lng + '">📡 Live GPS</a>';
+        // Action popup menu items
+        var actionItems = [];
+        
+        // 1. Riwayat Status
+        if ((o.history || []).length > 0) {
+          actionItems.push('<button class="action-item" type="button" data-history-id="' + o.id + '">📜 Riwayat Status</button>');
         }
+        
+        // 2. Titik Rumah di GMaps
+        actionItems.push('<a class="action-item" target="_blank" rel="noopener" href="' + escapeHtml(navUrl) + '">📍 Titik Rumah</a>');
+        
+        // 3. Rute Navigasi GMaps
+        actionItems.push('<a class="action-item" target="_blank" rel="noopener" href="' + routeUrl + '">🗺️ Rute Navigasi</a>');
+        
+        // 4. WA Kurir
+        actionItems.push('<a class="action-item" target="_blank" rel="noopener" style="color:#25d366" href="https://wa.me/?text=' + encodeURIComponent(waCourierText) + '">📲 Kirim WA Kurir</a>');
+        
+        // 5. Radar / Live GPS Kurir
+        if (o.courier_share_url) {
+          actionItems.push('<a class="action-item" target="_blank" rel="noopener" style="color:var(--volt)" href="' + escapeHtml(o.courier_share_url) + '">📡 Radar Kurir</a>');
+        } else if (o.courier_lat && o.courier_lng) {
+          actionItems.push('<a class="action-item" target="_blank" rel="noopener" style="color:var(--volt)" href="https://www.google.com/maps?q=' + o.courier_lat + ',' + o.courier_lng + '">📡 Posisi GPS Kurir</a>');
+        }
+        
+        // 6. Set / Ubah Posisi Kurir
+        if (o.courier_id) {
+          actionItems.push('<button class="action-item" type="button" data-cloc-id="' + o.id + '">🛵 ' + (o.courier_lat ? "Ubah Posisi Kurir" : "Set Posisi Kurir") + '</button>');
+        }
+        
+        // 7. Cetak Label
+        actionItems.push('<button class="action-item" type="button" data-print-id="' + o.id + '">🏷️ Cetak Label Resi</button>');
+
+        var actionDropdown = '<details class="action-dropdown">' +
+          '<summary class="btn btn-ghost btn-sm action-summary">⚙️ Aksi &amp; Rute ▾</summary>' +
+          '<div class="action-menu-popup">' + actionItems.join("") + '</div>' +
+          '</details>';
+
+        var payProofHighlight = (o.status === "awaiting_payment" && o.payment_proof)
+          ? '<button class="btn btn-primary btn-sm pay-btn" type="button" data-pay-id="' + o.id + '">💳 Cek Bukti Bayar</button>'
+          : "";
 
         var extraChips = (o.shipping > 0 ? '<span class="chip">Ongkir ' + rupiah(o.shipping) + "</span>" : "") +
           (o.referral_code ? '<span class="chip chip-referral">Referral ' + escapeHtml(o.referral_code) + "</span>" : "") +
           (o.flash_sale_id ? '<span class="chip chip-flash">Flash Sale</span>' : "") +
           (o.payment_method === "cod" ? '<span class="chip chip-cod">COD</span>' : "") +
           (o.queue_no ? '<span class="chip chip-queue">Antrean #' + o.queue_no + "</span>" : "");
-        var payBtn = (o.status === "awaiting_payment" && o.payment_proof)
-          ? '<button class="btn btn-ghost btn-sm pay-btn" type="button" data-pay-id="' + o.id + '">Bukti Bayar</button>'
-          : "";
-        var cLocBtn = o.courier_id
-          ? '<button class="btn btn-ghost btn-sm" type="button" data-cloc-id="' + o.id + '">' + (o.courier_lat ? "Ubah Posisi Kurir" : "Set Posisi Kurir") + "</button>"
-          : "";
-        var printBtn = '<button class="btn btn-ghost btn-sm" type="button" data-print-id="' + o.id + '">Cetak Label</button>';
+
         var totalCell = '<div class="price">' + rupiah(o.total) + "</div>" +
           (extraChips ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' + extraChips + "</div>" : "");
+
         var timeline = ((o.history || []).length > 0
           ? '<tr class="history-row" id="history-row-' + o.id + '" hidden><td colspan="6"><div class="order-timeline">' +
             o.history.map(function (h, i) {
@@ -283,6 +305,14 @@ var shipped = o.status === "shipped" || o.status === "delivered";
             }).join('<span class="tl-arrow">\u2192</span>') +
             "</div></td></tr>"
           : "");
+
+        var statusCellHtml = '<div class="status-cell">' +
+          orderStatusSelect(o.id, o.status) +
+          (shipped ? resi : "") +
+          payProofHighlight +
+          actionDropdown +
+          '</div>';
+
         return "<tr>" +
           '<td class="mono" style="white-space:nowrap"><strong>#' + o.id + '</strong><br><span class="muted" style="font-size:.74rem">' + tgl + "</span></td>" +
           '<td><div class="customer-cell">' + avatar(o.customer_name) +
@@ -290,7 +320,7 @@ var shipped = o.status === "shipped" || o.status === "delivered";
           '<td><div class="items-cell">' + items + "</div>" + couponChip + "</td>" +
           '<td>' + totalCell + "</td>" +
           '<td class="muted" style="font-size:.72rem;max-width:200px;white-space:pre-wrap">' + (o.notes || "-") + "</td>" +
-          '<td><div class="status-cell">' + orderStatusSelect(o.id, o.status) + resi + historyBtn + locBtn + routeBtn + waCourierBtn + radarBtn + payBtn + cLocBtn + printBtn + "</div></td>" +
+          '<td>' + statusCellHtml + '</td>' +
           "</tr>" +
           timeline;
       }).join("");
@@ -521,8 +551,13 @@ var shipped = o.status === "shipped" || o.status === "delivered";
     });
   });
 
-  /* orders: klik email → profil pelanggan */
+  /* orders: klik email → profil pelanggan & auto-close action-dropdown */
   document.getElementById("orders-body").addEventListener("click", function (e) {
+    var actionItem = e.target.closest(".action-item");
+    if (actionItem) {
+      var details = actionItem.closest("details");
+      if (details) details.removeAttribute("open");
+    }
     var email = e.target.closest("[data-email]");
     if (email) renderCustomerProfile(email.dataset.email);
     var hist = e.target.closest("[data-history-id]");
