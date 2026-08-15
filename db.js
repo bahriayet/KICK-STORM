@@ -191,6 +191,32 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
     return isSingle ? (mapped[0] || null) : mapped;
   }
 
+  // 7b. Members list with order count: SELECT ... FROM members m ...
+  if (/FROM\s+members(?:\s+m)?/i.test(cleanSql)) {
+    const { data: memberRows, error: mErr } = await supabase.from("members").select("*").order("points", { ascending: false });
+    if (mErr) throw mErr;
+    const { data: orderRows } = await supabase.from("orders").select("email, status").neq("status", "cancelled");
+    const orderCountMap = {};
+    if (orderRows) {
+      for (const o of orderRows) {
+        if (o.email) {
+          const em = o.email.toLowerCase();
+          orderCountMap[em] = (orderCountMap[em] || 0) + 1;
+        }
+      }
+    }
+    const result = (memberRows || []).map((m) => ({
+      email: m.email,
+      name: m.name || m.email.split("@")[0],
+      points: Number(m.points) || 0,
+      birth_month: m.birth_month,
+      birth_day: m.birth_day,
+      created_at: m.created_at,
+      orders: orderCountMap[(m.email || "").toLowerCase()] || 0
+    }));
+    return isSingle ? (result[0] || null) : result;
+  }
+
   // 8. General SELECT statements: SELECT ... FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT ...]
   if (/^SELECT\s+/i.test(cleanSql)) {
     const tableMatch = cleanSql.match(/FROM\s+([a-zA-Z0-9_]+)(?:\s+o\b|\s+p\b|\s+d\b|\s+c\b|\s+m\b)?/i);
@@ -282,12 +308,15 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
         }
       });
 
-      // Special handling for members ON CONFLICT(email) DO UPDATE
+      // Special handling for members ON CONFLICT(email) DO UPDATE / DO NOTHING
       if (table === "members" && /ON CONFLICT/i.test(cleanSql)) {
-        const { data: existing } = await supabase.from("members").select("points").eq("email", row.email).maybeSingle();
+        const { data: existing } = await supabase.from("members").select("points, name").eq("email", row.email).maybeSingle();
         if (existing) {
+          if (/DO NOTHING/i.test(cleanSql)) {
+            return { changes: 0 };
+          }
           const newPoints = (Number(existing.points) || 0) + (Number(row.points) || 0);
-          await supabase.from("members").update({ points: newPoints, name: row.name }).eq("email", row.email);
+          await supabase.from("members").update({ points: newPoints, name: row.name || existing.name }).eq("email", row.email);
           return { changes: 1 };
         } else {
           await supabase.from("members").insert(row);
