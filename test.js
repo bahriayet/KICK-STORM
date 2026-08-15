@@ -83,12 +83,39 @@ async function test(name, fn) {
     await request(app).post("/api/orders").send({ name: "X" }).expect(400);
   });
 
-  await test("GET /api/track ok -> 200 with items", async () => {
+  await test("GET /api/track ok -> 200 with items and email property", async () => {
     const res = await request(app)
       .get(`/api/track?orderId=${orderId}&email=budi@kickstorm.id`)
       .expect(200);
     assert.strictEqual(res.body.order.id, orderId);
+    assert.strictEqual(res.body.order.email, "budi@kickstorm.id");
     assert.strictEqual(res.body.order.items.length, 2);
+  });
+
+  await test("GET /api/track dengan format # dan prefix -> 200", async () => {
+    const resHash = await request(app)
+      .get(`/api/track?orderId=%23${orderId}&email=budi@kickstorm.id`)
+      .expect(200);
+    assert.strictEqual(resHash.body.order.id, orderId);
+
+    const resKs = await request(app)
+      .get(`/api/track?orderId=KS-${orderId}&email=budi@kickstorm.id`)
+      .expect(200);
+    assert.strictEqual(resKs.body.order.id, orderId);
+  });
+
+  await test("GET /api/track email case-insensitive -> 200", async () => {
+    const res = await request(app)
+      .get(`/api/track?orderId=${orderId}&email=Budi@Kickstorm.ID`)
+      .expect(200);
+    assert.strictEqual(res.body.order.id, orderId);
+  });
+
+  await test("GET /api/track input email dan ID tertukar -> 200 auto-detect", async () => {
+    const res = await request(app)
+      .get(`/api/track?orderId=budi@kickstorm.id&email=${orderId}`)
+      .expect(200);
+    assert.strictEqual(res.body.order.id, orderId);
   });
 
   await test("GET /api/track wrong email -> 404", async () => {
@@ -450,6 +477,19 @@ async function test(name, fn) {
       .get(`/api/track?orderId=${shippedId}&email=sari@kickstorm.id`)
       .expect(200);
     assert.strictEqual(track.body.order.tracking_number, "JNE123456789");
+
+    // Pelacakan via Nomor Resi + Email
+    const trackByResiWithEmail = await request(app)
+      .get(`/api/track?orderId=JNE123456789&email=sari@kickstorm.id`)
+      .expect(200);
+    assert.strictEqual(trackByResiWithEmail.body.order.id, shippedId);
+
+    // Pelacakan via Nomor Resi tanpa Email
+    const trackByResiNoEmail = await request(app)
+      .get(`/api/track?orderId=JNE123456789`)
+      .expect(200);
+    assert.strictEqual(trackByResiNoEmail.body.order.id, shippedId);
+
     const list = await request(app)
       .get("/api/orders")
       .set("Authorization", `Bearer ${token}`)

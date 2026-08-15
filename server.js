@@ -785,19 +785,91 @@ app.get("/courier", (req, res) => {
 });
 
 app.get("/api/track", async (req, res) => {
-  const orderId = Number.parseInt(req.query.orderId, 10);
-  const email = String(req.query.email || "").trim().toLowerCase();
-  if (!Number.isInteger(orderId) || orderId < 1 || !validEmail(email)) {
-    return res.status(400).json({ error: "Lengkapi nomor pesanan dan email yang valid." });
+  let rawQuery = String(req.query.orderId || req.query.id || req.query.tracking_number || req.query.q || req.query.query || "").trim();
+  let rawEmail = String(req.query.email || "").trim().toLowerCase();
+
+  // Jika input pertama adalah format email dan rawEmail kosong
+  if (validEmail(rawQuery) && !rawEmail) {
+    rawEmail = rawQuery.toLowerCase();
+    rawQuery = "";
+  } else if (validEmail(rawQuery) && !validEmail(rawEmail)) {
+    const temp = rawQuery;
+    rawQuery = rawEmail;
+    rawEmail = temp.toLowerCase();
   }
-  const order = await db.get(
-    "SELECT id, customer_name, total, discount, coupon_code, referral_code, flash_sale_id, shipping, status, tracking_number, notes, created_at, payment_method, payment_proof, payment_note, paid_at, courier_name, courier_lat, courier_lng, courier_share_url, courier_updated_at, maps_url, address, lat, lng, queue_no FROM orders WHERE id = ? AND email = ?",
-    [orderId, email]
-  );
-  if (!order) return res.status(404).json({ error: "Pesanan tidak ditemukan." });
-  const items = await db.all("SELECT product_id, product_name, price, qty, size, colorway FROM order_items WHERE order_id = ?", [orderId]);
-  const history = await db.all("SELECT from_status, to_status, changed_at FROM order_status_log WHERE order_id = ? ORDER BY id", [orderId]);
-  res.json({ order: { ...order, items, history } });
+
+  if (!rawQuery && !rawEmail) {
+    return res.status(400).json({ error: "Masukkan nomor pesanan, nomor resi, atau email pemesan." });
+  }
+
+  // Bersihkan format nomor pesanan jika pengguna mengetik #12, KS-12, atau Order #12
+  let orderId = null;
+  let trackingNumber = null;
+  if (rawQuery) {
+    const numMatch = rawQuery.match(/^(?:order|pesanan|no\.?|ks-)?\s*#?\s*(\d+)$/i);
+    if (numMatch) {
+      orderId = Number.parseInt(numMatch[1], 10);
+    } else {
+      trackingNumber = rawQuery;
+    }
+  }
+
+  const ORDER_COLS = "id, customer_name, email, total, discount, coupon_code, referral_code, flash_sale_id, shipping, status, tracking_number, notes, created_at, payment_method, payment_proof, payment_note, paid_at, courier_name, courier_lat, courier_lng, courier_share_url, courier_updated_at, maps_url, address, lat, lng, queue_no";
+
+  let order = null;
+
+  if (rawEmail) {
+    if (!validEmail(rawEmail)) {
+      return res.status(400).json({ error: "Format email tidak valid. Masukkan email saat pemesanan." });
+    }
+
+    if (orderId !== null && orderId >= 1) {
+      order = await db.get(
+        `SELECT ${ORDER_COLS} FROM orders WHERE id = ? AND LOWER(email) = ?`,
+        [orderId, rawEmail]
+      );
+    }
+
+    if (!order && (trackingNumber || rawQuery)) {
+      const trk = trackingNumber || rawQuery;
+      order = await db.get(
+        `SELECT ${ORDER_COLS} FROM orders WHERE UPPER(tracking_number) = UPPER(?) AND LOWER(email) = ?`,
+        [trk, rawEmail]
+      );
+    }
+
+    // Jika mencari hanya berdasarkan email
+    if (!order && !rawQuery) {
+      order = await db.get(
+        `SELECT ${ORDER_COLS} FROM orders WHERE LOWER(email) = ? ORDER BY id DESC LIMIT 1`,
+        [rawEmail]
+      );
+    }
+  } else {
+    // Jika tanpa email, izinkan pelacakan langsung via nomor pesanan atau resi
+    if (orderId !== null && orderId >= 1) {
+      order = await db.get(
+        `SELECT ${ORDER_COLS} FROM orders WHERE id = ?`,
+        [orderId]
+      );
+    }
+
+    if (!order && (trackingNumber || rawQuery)) {
+      const trk = trackingNumber || rawQuery;
+      order = await db.get(
+        `SELECT ${ORDER_COLS} FROM orders WHERE UPPER(tracking_number) = UPPER(?)`,
+        [trk]
+      );
+    }
+  }
+
+  if (!order) {
+    return res.status(404).json({ error: "Pesanan tidak ditemukan. Periksa nomor pesanan/resi dan email kamu." });
+  }
+
+  const items = await db.all("SELECT product_id, product_name, price, qty, size, colorway FROM order_items WHERE order_id = ?", [order.id]);
+  const history = await db.all("SELECT from_status, to_status, changed_at FROM order_status_log WHERE order_id = ? ORDER BY id", [order.id]);
+  res.json({ order: { ...order, items: items || [], history: history || [] } });
 });
 
 /* ---- Courier Portal API ---- */

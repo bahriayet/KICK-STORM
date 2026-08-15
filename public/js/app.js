@@ -356,10 +356,13 @@ function keyOf(i) {
 }
 
 function colorwayName(cw) {
+  if (!cw) return "";
   try {
     var o = JSON.parse(cw);
-    return o.n || "";
-  } catch (e) { return ""; }
+    return o.n || o.name || cw;
+  } catch (e) {
+    return String(cw);
+  }
 }
 
 function cartSubtotal() {
@@ -1428,7 +1431,7 @@ document.getElementById("checkout-form").addEventListener("submit", function (e)
         var extra = "";
         if (res.d.queueNo) extra += '<p class="queue-line">\u26a1 Kamu antrean <strong>#' + res.d.queueNo + "</strong> untuk drop " + (res.d.dropName || "") + "</p>";
         if (res.d.status === "awaiting_payment") {
-          extra += '<p class="pay-line">\u26a1 Selesaikan pembayaran lalu upload bukti transfer di bagian <a href="#lacak" style="color:var(--volt)">Lacak Pesanan</a>.</p>';
+          extra += '<p class="pay-line">\u26a1 Selesaikan pembayaran lalu upload bukti transfer di bagian <a href="#lacak" onclick="trackOrder(\'' + res.d.orderId + '\', \'' + escapeHtml(payload.email) + '\', true); return false;" style="color:var(--volt)">Lacak Pesanan #' + res.d.orderId + '</a>.</p>';
         }
         var waLink = waNumber
           ? ' <a href="https://wa.me/' + waNumber + '?text=' + encodeURIComponent("Halo KICKSTORM, saya baru saja checkout pesanan #" + res.d.orderId + " (" + rupiah(res.d.total) + "). Mohon konfirmasi ya.") + '" target="_blank" rel="noopener" style="color:var(--volt);text-decoration:underline">Konfirmasi via WhatsApp</a>'
@@ -1436,6 +1439,10 @@ document.getElementById("checkout-form").addEventListener("submit", function (e)
         msg.className = "form-msg ok";
         msg.innerHTML = "\u2713 Pesanan #" + res.d.orderId + " diterima \u2014 " + rupiah(res.d.total) + (res.d.shipping > 0 ? " (termasuk ongkir " + rupiah(res.d.shipping) + ")" : "") + waLink + extra;
         confetti();
+        try {
+          localStorage.setItem("ks_last_order", JSON.stringify({ id: res.d.orderId, email: payload.email }));
+          renderTrackHistoryPill();
+        } catch (e) {}
         cart = [];
         saveCart();
         coupon = null;
@@ -1489,22 +1496,104 @@ document.getElementById("news-form").addEventListener("submit", function (e) {
     .finally(function () { btn.disabled = false; });
 });
 
-document.getElementById("track-form").addEventListener("submit", function (e) {
-  e.preventDefault();
+function safeFormatDate(str) {
+  if (!str) return "-";
+  try {
+    var s = String(str).replace(" ", "T");
+    var d = new Date(s);
+    if (isNaN(d.getTime())) d = new Date(str);
+    if (isNaN(d.getTime())) return String(str);
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  } catch (e) {
+    return String(str || "-");
+  }
+}
+
+function safeFormatDateTime(str) {
+  if (!str) return "-";
+  try {
+    var s = String(str).replace(" ", "T");
+    var d = new Date(s);
+    if (isNaN(d.getTime())) d = new Date(str);
+    if (isNaN(d.getTime())) return String(str);
+    return d.toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch (e) {
+    return String(str || "-");
+  }
+}
+
+function renderTrackHistoryPill() {
+  var el = document.getElementById("track-history-pill");
+  if (!el) return;
+  try {
+    var raw = localStorage.getItem("ks_last_order");
+    if (!raw) { el.hidden = true; el.innerHTML = ""; return; }
+    var last = JSON.parse(raw);
+    if (!last || !last.id) { el.hidden = true; el.innerHTML = ""; return; }
+    el.hidden = false;
+    el.innerHTML = '<span class="muted" style="font-size:.78rem">Pesanan terakhirmu:</span> ' +
+      '<button class="track-pill-btn" type="button" onclick="trackOrder(\'' + escapeHtml(String(last.id)) + '\', \'' + escapeHtml(String(last.email || '')) + '\', false)">' +
+      '<span class="dot"></span> Lacak Pesanan #' + escapeHtml(String(last.id)) + (last.email ? ' (' + escapeHtml(String(last.email)) + ')' : '') + ' ↗</button>';
+  } catch (e) {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
+}
+
+window.trackOrder = function (orderId, email, scroll) {
+  var idInput = document.getElementById("track-id");
+  var emailInput = document.getElementById("track-email");
+  if (orderId !== undefined && orderId !== null && idInput) idInput.value = orderId;
+  if (email !== undefined && email !== null && emailInput) emailInput.value = email;
+  if (scroll) {
+    var sec = document.getElementById("lacak");
+    if (sec) sec.scrollIntoView({ behavior: "smooth" });
+  }
+  executeTrack(idInput ? idInput.value.trim() : orderId, emailInput ? emailInput.value.trim() : email);
+};
+
+function executeTrack(rawOrderId, rawEmail) {
   var out = document.getElementById("track-result");
   var btn = document.getElementById("track-btn");
-  var orderId = document.getElementById("track-id").value.trim();
-  var email = document.getElementById("track-email").value.trim();
-  out.innerHTML = '<p class="form-msg">Mencari pesanan...</p>';
-  btn.disabled = true;
-  fetch("/api/track?orderId=" + encodeURIComponent(orderId) + "&email=" + encodeURIComponent(email))
+  var idInput = document.getElementById("track-id");
+  var emailInput = document.getElementById("track-email");
+
+  var orderId = (rawOrderId !== undefined && rawOrderId !== null ? String(rawOrderId) : (idInput ? idInput.value : "")).trim();
+  var email = (rawEmail !== undefined && rawEmail !== null ? String(rawEmail) : (emailInput ? emailInput.value : "")).trim();
+
+  if (!orderId && !email) {
+    out.innerHTML = '<div class="track-err-box"><p class="track-err">⚠️ Masukkan nomor pesanan (mis. 12 atau #12), nomor resi, atau email pemesan.</p></div>';
+    return;
+  }
+
+  var searchLabel = orderId ? (orderId.startsWith("#") ? orderId : "#" + orderId) : email;
+  out.innerHTML = '<p class="form-msg">🔍 Mencari pesanan ' + escapeHtml(searchLabel) + '...</p>';
+  if (btn) btn.disabled = true;
+
+  var url = "/api/track?orderId=" + encodeURIComponent(orderId) + "&email=" + encodeURIComponent(email);
+  fetch(url)
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
       if (!res.ok) {
-        out.innerHTML = '<p class="track-err">' + (res.d.error || "Terjadi kesalahan.") + "</p>";
+        var errMsg = res.d && res.d.error ? res.d.error : "Pesanan tidak ditemukan.";
+        out.innerHTML = '<div class="track-err-box">' +
+          '<p class="track-err">⚠️ ' + escapeHtml(errMsg) + '</p>' +
+          '<p class="muted" style="font-size:.8rem;margin-top:6px">Tips: Masukkan nomor pesanan yang benar (mis. <strong>12</strong> atau <strong>#12</strong>), atau cari menggunakan <strong>email pemesan</strong> saat checkout.</p>' +
+          '</div>';
         return;
       }
       var o = res.d.order;
+      if (!o) {
+        out.innerHTML = '<div class="track-err-box"><p class="track-err">⚠️ Data pesanan tidak ditemukan.</p></div>';
+        return;
+      }
+
+      // Save valid order to localStorage for quick access
+      try {
+        localStorage.setItem("ks_last_order", JSON.stringify({ id: o.id, email: o.email || email }));
+        renderTrackHistoryPill();
+      } catch (e) {}
+
       var labels = {
         awaiting_payment: "Menunggu Pembayaran",
         created: "Pesanan Dibuat",
@@ -1514,18 +1603,21 @@ document.getElementById("track-form").addEventListener("submit", function (e) {
         delivered: "Selesai",
         cancelled: "Dibatalkan"
       };
-      var tgl = new Date(o.created_at.replace(" ", "T")).toLocaleDateString("id-ID");
-      var items = o.items.map(function (i) {
-        return i.product_name + " \u00d7" + i.qty + (i.size ? " (Uk. " + i.size + ")" : "") + (i.colorway ? " \u00b7 " + colorwayName(i.colorway) : "");
-      }).join(", ");
-      var history = (o.history || []).map(function (h) {
-        var when = new Date(h.changed_at.replace(" ", "T")).toLocaleString("id-ID", {
-          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
-        });
+
+      var tgl = safeFormatDate(o.created_at);
+      var itemsList = o.items || [];
+      var items = itemsList.map(function (i) {
+        return escapeHtml(i.product_name || "Produk") + " \u00d7" + (i.qty || 1) + (i.size ? " (Uk. " + escapeHtml(i.size) + ")" : "") + (i.colorway ? " \u00b7 " + escapeHtml(colorwayName(i.colorway)) : "");
+      }).join(", ") || "Item pesanan";
+
+      var historyList = o.history || [];
+      var history = historyList.map(function (h) {
+        var when = safeFormatDateTime(h.changed_at);
         return '<div class="tl-item"><span class="tl-dot"></span>' +
-          '<span class="tl-label">' + (labels[h.to_status] || h.to_status) + "</span>" +
+          '<span class="tl-label">' + (labels[h.to_status] || escapeHtml(h.to_status)) + "</span>" +
           '<span class="tl-time">' + when + "</span></div>";
       }).join("");
+
       var payBox = "";
       if (o.status === "awaiting_payment") {
         payBox = '<div class="pay-upload">' +
@@ -1569,32 +1661,109 @@ document.getElementById("track-form").addEventListener("submit", function (e) {
         }
       }
 
+      var resiHtml = "";
+      if (o.tracking_number) {
+        resiHtml = '<p class="track-resi">Nomor resi: <strong>' + escapeHtml(o.tracking_number) + '</strong>' +
+          '<button class="track-copy-resi" type="button" onclick="copyTextToClipboard(\'' + escapeHtml(o.tracking_number) + '\', this)">Salin</button>' +
+          '</p>';
+      }
+
+      var refreshBtn = '<button class="track-btn-refresh" type="button" onclick="trackOrder(\'' + o.id + '\', \'' + escapeHtml(o.email || email) + '\', false)" title="Segarkan status pesanan">' +
+        '🔄 Segarkan' +
+        '</button>';
+
       out.innerHTML = '<div class="track-card">' +
-        "<div>" +
-        '<p class="card-tag">Pesanan #' + o.id + " \u2022 " + tgl + "</p>" +
-        '<p class="track-items muted" style="margin:2px 0 6px">' + items + "</p>" +
-        '<span class="card-price">' + rupiah(o.total) + "</span>" +
-        (o.discount > 0 ? '<p class="muted" style="font-size:.78rem;margin-top:2px">Termasuk diskon ' + (o.coupon_code || "kupon") + " \u2212" + rupiah(o.discount) + "</p>" : "") +
-        (o.queue_no ? '<p class="queue-chip">\u26a1 Antrean drop <strong>#' + o.queue_no + "</strong></p>" : "") +
-        (o.courier_name ? '<p class="muted" style="font-size:.78rem;margin-top:2px">Kurir: <strong>' + o.courier_name + "</strong>" + (o.payment_method === "cod" ? " \u2022 Bayar di tempat (COD)" : " \u2022 Transfer bank") + "</p>" : "") +
-        "</div>" +
-        '<span class="track-status"><span class="dot" style="width:9px;height:9px;border-radius:50%;background:var(--volt);box-shadow:0 0 12px var(--volt-glow)"></span>' +
-        (labels[o.status] || o.status) + "</span>" +
-        (o.tracking_number ? '<p class="track-resi">Nomor resi: <strong>' + o.tracking_number + "</strong></p>" : "") +
+        '<div class="track-header-row">' +
+          '<div>' +
+            '<p class="card-tag">Pesanan #' + o.id + " \u2022 " + tgl + "</p>" +
+            '<p class="track-items muted" style="margin:2px 0 6px">' + items + "</p>" +
+            '<span class="card-price">' + rupiah(o.total) + "</span>" +
+            (o.discount > 0 ? '<p class="muted" style="font-size:.78rem;margin-top:2px">Termasuk diskon ' + escapeHtml(o.coupon_code || "kupon") + " \u2212" + rupiah(o.discount) + "</p>" : "") +
+            (o.queue_no ? '<p class="queue-chip">\u26a1 Antrean drop <strong>#' + o.queue_no + "</strong></p>" : "") +
+            (o.courier_name ? '<p class="muted" style="font-size:.78rem;margin-top:2px">Kurir: <strong>' + escapeHtml(o.courier_name) + "</strong>" + (o.payment_method === "cod" ? " \u2022 Bayar di tempat (COD)" : " \u2022 Transfer bank") + "</p>" : "") +
+          '</div>' +
+          '<div style="text-align:right">' +
+            '<span class="track-status"><span class="dot" style="width:9px;height:9px;border-radius:50%;background:var(--volt);box-shadow:0 0 12px var(--volt-glow)"></span>' +
+            (labels[o.status] || escapeHtml(o.status)) + '</span>' +
+            '<div class="track-actions">' + refreshBtn + '</div>' +
+          '</div>' +
+        '</div>' +
+        resiHtml +
         destinationLink +
         liveCourierBox +
         (history ? '<div class="track-timeline">' + history + "</div>" : "") +
         "</div>" +
         payBox +
         '<div id="member-box"></div>';
-      wirePayUpload(o.id, o.email);
-      loadMemberCard(o.email);
+
+      wirePayUpload(o.id, o.email || email);
+      if (o.email || email) {
+        loadMemberCard(o.email || email);
+      }
     })
-    .catch(function () {
-      out.innerHTML = '<p class="track-err">Gagal terhubung ke server.</p>';
+    .catch(function (err) {
+      console.error("Track error:", err);
+      out.innerHTML = '<div class="track-err-box">' +
+        '<p class="track-err">⚠️ Gagal terhubung ke server.</p>' +
+        '<button class="btn btn-ghost btn-sm" type="button" style="margin-top:8px" onclick="trackOrder(\'' + escapeHtml(orderId) + '\', \'' + escapeHtml(email) + '\', false)">Coba Lagi 🔄</button>' +
+        '</div>';
     })
-    .finally(function () { btn.disabled = false; });
+    .finally(function () {
+      if (btn) btn.disabled = false;
+    });
+}
+
+window.copyTextToClipboard = function (text, btnEl) {
+  if (!text) return;
+  function done() {
+    if (btnEl) {
+      var prev = btnEl.textContent;
+      btnEl.textContent = "Disalin \u2713";
+      setTimeout(function () { btnEl.textContent = prev; }, 1500);
+    }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text); done(); });
+  } else {
+    fallbackCopy(text);
+    done();
+  }
+};
+
+document.getElementById("track-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  var orderId = document.getElementById("track-id").value.trim();
+  var email = document.getElementById("track-email").value.trim();
+  executeTrack(orderId, email);
 });
+
+// Inisialisasi pill riwayat pesanan dan cek URL jika ada parameter
+renderTrackHistoryPill();
+(function initTrackFromStorageOrUrl() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var hash = window.location.hash || "";
+    var qId = params.get("orderId") || params.get("id") || params.get("track");
+    var qEmail = params.get("email");
+    if (!qId && hash.includes("orderId=")) {
+      var hashParams = new URLSearchParams(hash.split("?")[1] || "");
+      qId = hashParams.get("orderId") || hashParams.get("id");
+      qEmail = hashParams.get("email");
+    }
+    if (qId) {
+      trackOrder(qId, qEmail || "", true);
+    } else {
+      var raw = localStorage.getItem("ks_last_order");
+      if (raw) {
+        var last = JSON.parse(raw);
+        var idInput = document.getElementById("track-id");
+        var emailInput = document.getElementById("track-email");
+        if (idInput && !idInput.value && last && last.id) idInput.value = last.id;
+        if (emailInput && !emailInput.value && last && last.email) emailInput.value = last.email;
+      }
+    }
+  } catch (e) {}
+})();
 
 function wirePayUpload(orderId, email) {
   var file = document.getElementById("pay-file");
