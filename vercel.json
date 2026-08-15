@@ -54,6 +54,34 @@
       }
     },
     {
+      "src": "/courier",
+      "dest": "/public/courier.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "src": "/admin",
+      "dest": "/public/admin.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "src": "/produk/(.*)",
+      "dest": "/public/index.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "src": "/lacak",
+      "dest": "/public/index.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
       "src": "/(index\\.html|admin\\.html|courier\\.html)$",
       "dest": "/public/$1",
       "headers": {

@@ -1104,6 +1104,17 @@ async function test(name, fn) {
     assert.strictEqual(res.body.order.maps_url, null);
   });
 
+  await test("clean URLs: GET /admin, /courier, /lacak, /produk/:id -> 200 HTML", async () => {
+    const adminRes = await request(app).get("/admin").expect(200);
+    assert.ok(adminRes.text.includes("<!DOCTYPE html>"));
+    const courierRes = await request(app).get("/courier").expect(200);
+    assert.ok(courierRes.text.includes("<!DOCTYPE html>"));
+    const lacakRes = await request(app).get("/lacak").expect(200);
+    assert.ok(lacakRes.text.includes("<!DOCTYPE html>"));
+    const prodRes = await request(app).get("/produk/1").expect(200);
+    assert.ok(prodRes.text.includes("<!DOCTYPE html>"));
+  });
+
   await test("unknown endpoint -> 404", async () => {
     await request(app).get("/api/hal-hal").expect(404);
   });

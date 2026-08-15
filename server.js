@@ -178,6 +178,19 @@ app.use(express.static(path.join(__dirname, "public"), {
   }
 }));
 
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+app.get("/courier", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "courier.html"));
+});
+app.get("/lacak", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+app.get("/produk/:id", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 app.use("/api", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
