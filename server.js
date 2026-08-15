@@ -416,9 +416,16 @@ app.post("/api/subscribers", async (req, res) => {
   }
   try {
     const result = await db.run("INSERT INTO subscribers (email) VALUES (?)", [email]);
+    try {
+      const defaultName = email.split("@")[0];
+      await db.run(
+        "INSERT INTO members (email, name, points) VALUES (?, ?, 0) ON CONFLICT(email) DO NOTHING",
+        [email, defaultName]
+      );
+    } catch (e) {}
     res.status(201).json({ id: result.lastInsertRowid, message: "Berhasil bergabung ke Storm Club." });
   } catch (err) {
-    if (err.message && (err.message.includes("UNIQUE constraint failed") || err.message.includes("SQLITE_CONSTRAINT"))) {
+    if (err.message && (err.message.includes("UNIQUE constraint failed") || err.message.includes("SQLITE_CONSTRAINT") || err.code === "23505")) {
       return res.status(409).json({ error: "Email ini sudah terdaftar." });
     }
     throw err;
