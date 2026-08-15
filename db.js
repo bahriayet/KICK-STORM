@@ -91,10 +91,285 @@ function normalizeRow(row, columns) {
   return obj;
 }
 
-// Low-level SQL queries (used by LibSQL/SQLite fallback)
+// -------------------------------------------------------------
+// Supabase SQL Query Engine
+// -------------------------------------------------------------
+
+async function supabaseQuery(sql, args = [], isSingle = false) {
+  const cleanSql = sql.trim().replace(/\s+/g, " ");
+
+  // 1. SELECT COUNT(*) AS n FROM ...
+  if (/^SELECT COUNT\(\*\)\s+AS\s+n\s+FROM/i.test(cleanSql)) {
+    const m = cleanSql.match(/^SELECT COUNT\(\*\)\s+AS\s+n\s+FROM\s+([a-zA-Z0-9_]+)(?:\s+WHERE\s+(.+))?$/i);
+    if (m) {
+      const table = m[1];
+      const where = m[2];
+      let q = supabase.from(table).select("*", { count: "exact", head: true });
+      if (where) {
+        if (/stock\s*<=\s*30/i.test(where)) q = q.lte("stock", 30);
+        else if (/status\s*=\s*'delivered'/i.test(where)) q = q.eq("status", "delivered");
+        else if (/status\s*=\s*'cancelled'/i.test(where)) q = q.eq("status", "cancelled");
+        else if (/active\s*=\s*1/i.test(where)) q = q.eq("active", 1);
+        else if (where.includes("?")) {
+          const colMatch = where.match(/([a-zA-Z0-9_]+)\s*=\s*\?/);
+          if (colMatch) q = q.eq(colMatch[1], args[0]);
+        }
+      }
+      const { count } = await q;
+      const res = { n: count || 0 };
+      return isSingle ? res : [res];
+    }
+  }
+
+  // 2. SELECT COALESCE(SUM(sold), 0) AS total FROM products
+  if (/^SELECT COALESCE\(SUM\(sold\),\s*0\)\s+AS\s+total\s+FROM\s+products/i.test(cleanSql)) {
+    const { data } = await supabase.from("products").select("sold");
+    const total = (data || []).reduce((acc, row) => acc + (Number(row.sold) || 0), 0);
+    const res = { total };
+    return isSingle ? res : [res];
+  }
+
+  // 3. SELECT COALESCE(SUM(total), 0) AS n FROM orders WHERE status != 'cancelled'
+  if (/^SELECT COALESCE\(SUM\(total\),\s*0\)\s+AS\s+n\s+FROM\s+orders/i.test(cleanSql)) {
+    const { data } = await supabase.from("orders").select("total").neq("status", "cancelled");
+    const n = (data || []).reduce((acc, row) => acc + (Number(row.total) || 0), 0);
+    const res = { n };
+    return isSingle ? res : [res];
+  }
+
+  // 4. SELECT AVG(...) FROM orders
+  if (/^SELECT AVG\(/i.test(cleanSql)) {
+    const { data } = await supabase.from("orders").select("created_at").in("status", ["shipped", "delivered"]);
+    let hours = 24;
+    if (data && data.length > 0) {
+      const now = Date.now();
+      const diffs = data.map((r) => Math.max(1, (now - new Date(r.created_at).getTime()) / 3600000));
+      hours = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+    }
+    const res = { hours };
+    return isSingle ? res : [res];
+  }
+
+  // 5. Products sold last 7 days: SELECT oi.product_id, SUM(oi.qty) AS qty FROM order_items ...
+  if (/SELECT oi\.product_id,\s*SUM\(oi\.qty\)\s+AS\s+qty/i.test(cleanSql)) {
+    const { data } = await supabase.from("order_items").select("product_id, qty, orders!inner(status, created_at)").neq("orders.status", "cancelled");
+    const map = {};
+    if (data) {
+      for (const item of data) {
+        if (item.product_id) {
+          map[item.product_id] = (map[item.product_id] || 0) + (Number(item.qty) || 0);
+        }
+      }
+    }
+    const res = Object.entries(map).map(([product_id, qty]) => ({ product_id: Number(product_id), qty }));
+    return isSingle ? res[0] || null : res;
+  }
+
+  // 6. Drops: SELECT d.id, d.name, d.product_id, ... FROM drops ...
+  if (/^SELECT .*FROM drops/i.test(cleanSql)) {
+    let q = supabase.from("drops").select("id, name, product_id, release_at, queue_enabled, created_at, products(name)").order("release_at", { ascending: true });
+    if (/LIMIT 1/i.test(cleanSql)) q = q.limit(1);
+    if (cleanSql.includes("WHERE d.id = ?")) q = q.eq("id", args[0]);
+    const { data } = await q;
+    const mapped = (data || []).map((d) => ({
+      id: d.id,
+      name: d.name,
+      product_id: d.product_id,
+      release_at: d.release_at,
+      queue_enabled: d.queue_enabled,
+      created_at: d.created_at,
+      product_name: d.products ? d.products.name : null
+    }));
+    return isSingle ? (mapped[0] || null) : mapped;
+  }
+
+  // 7. General SELECT statements: SELECT ... FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT ...]
+  if (/^SELECT\s+/i.test(cleanSql)) {
+    const tableMatch = cleanSql.match(/FROM\s+([a-zA-Z0-9_]+)(?:\s+o\b|\s+p\b|\s+d\b|\s+c\b|\s+m\b)?/i);
+    if (tableMatch) {
+      const table = tableMatch[1];
+      let q = supabase.from(table).select("*");
+
+      // Filter WHERE
+      if (/WHERE\s+/i.test(cleanSql)) {
+        const wherePart = cleanSql.split(/WHERE\s+/i)[1].split(/ORDER\s+BY|GROUP\s+BY|LIMIT/i)[0];
+        const conditions = wherePart.split(/\s+AND\s+/i);
+        let argIdx = 0;
+        for (const cond of conditions) {
+          const colEq = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*=\s*(\?|'[^']*'|[0-9]+)/i);
+          const colLte = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*<=\s*(\?|'[^']*'|[0-9]+)/i);
+          const colGt = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*>\s*(\?|'[^']*'|[0-9]+)/i);
+          const colNeq = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*!=\s*(\?|'[^']*'|[0-9]+)/i);
+
+          if (colEq) {
+            const col = colEq[1];
+            const val = colEq[2] === "?" ? args[argIdx++] : colEq[2].replace(/^'|'$/g, "");
+            q = q.eq(col, val);
+          } else if (colLte) {
+            const col = colLte[1];
+            const val = colLte[2] === "?" ? args[argIdx++] : colLte[2].replace(/^'|'$/g, "");
+            q = q.lte(col, val);
+          } else if (colGt) {
+            const col = colGt[1];
+            const val = colGt[2] === "?" ? args[argIdx++] : colGt[2].replace(/^'|'$/g, "");
+            q = q.gt(col, val);
+          } else if (colNeq) {
+            const col = colNeq[1];
+            const val = colNeq[2] === "?" ? args[argIdx++] : colNeq[2].replace(/^'|'$/g, "");
+            q = q.neq(col, val);
+          }
+        }
+      }
+
+      // ORDER BY
+      if (/ORDER BY\s+/i.test(cleanSql)) {
+        const orderPart = cleanSql.split(/ORDER BY\s+/i)[1].split(/LIMIT/i)[0].trim();
+        const colMatch = orderPart.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)(?:\s+(ASC|DESC))?/i);
+        if (colMatch) {
+          const col = colMatch[1];
+          const isAsc = !colMatch[2] || colMatch[2].toUpperCase() === "ASC";
+          q = q.order(col, { ascending: isAsc });
+        }
+      }
+
+      // LIMIT
+      if (/LIMIT\s+([0-9]+|\?)/i.test(cleanSql)) {
+        const lim = cleanSql.match(/LIMIT\s+([0-9]+)/i);
+        if (lim) q = q.limit(Number(lim[1]));
+        else q = q.limit(1);
+      }
+
+      const { data, error } = await q;
+      if (error) throw error;
+      if (isSingle) {
+        return (data && data.length > 0) ? data[0] : null;
+      }
+      return data || [];
+    }
+  }
+
+  // 8. INSERT INTO <table> (<cols>) VALUES (<vals>)
+  if (/^INSERT INTO\s+/i.test(cleanSql)) {
+    const tableMatch = cleanSql.match(/^INSERT INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)\s*VALUES/i);
+    if (tableMatch) {
+      const table = tableMatch[1];
+      const cols = tableMatch[2].split(",").map((c) => c.trim().replace(/^`|`$/g, ""));
+      const row = {};
+      cols.forEach((col, i) => {
+        row[col] = args[i];
+      });
+
+      // Special handling for ON CONFLICT (key) DO UPDATE
+      if (/ON CONFLICT/i.test(cleanSql)) {
+        const { data, error } = await supabase.from(table).upsert(row).select();
+        if (error) throw error;
+        return { lastInsertRowid: data && data[0] ? data[0].id : undefined, changes: 1 };
+      }
+
+      const { data, error } = await supabase.from(table).insert(row).select();
+      if (error) throw error;
+      return { lastInsertRowid: data && data[0] ? data[0].id : undefined, changes: 1 };
+    }
+  }
+
+  // 9. UPDATE <table> SET ... WHERE ...
+  if (/^UPDATE\s+/i.test(cleanSql)) {
+    const tableMatch = cleanSql.match(/^UPDATE\s+([a-zA-Z0-9_]+)\s+SET\s+(.+)\s+WHERE\s+(.+)$/i);
+    if (tableMatch) {
+      const table = tableMatch[1];
+      const setPart = tableMatch[2];
+      const wherePart = tableMatch[3];
+
+      // Special handling for stock/sold adjustments: stock = stock - ?, sold = sold + ?
+      if (/stock\s*=\s*stock\s*[-+]/i.test(setPart)) {
+        const idMatch = wherePart.match(/id\s*=\s*(\?|[0-9]+)/i);
+        const id = idMatch ? (idMatch[1] === "?" ? args[args.length - 1] : Number(idMatch[1])) : null;
+        if (id) {
+          const { data: p } = await supabase.from("products").select("stock, sold").eq("id", id).maybeSingle();
+          if (p) {
+            let newStock = p.stock;
+            let newSold = p.sold;
+            if (/stock\s*=\s*stock\s*-\s*\?/i.test(setPart)) {
+              newStock -= args[0];
+              newSold += args[1];
+            } else if (/stock\s*=\s*stock\s*\+\s*\?/i.test(setPart)) {
+              newStock += args[0];
+              newSold = Math.max(0, newSold - args[1]);
+            }
+            await supabase.from("products").update({ stock: newStock, sold: newSold }).eq("id", id);
+            return { changes: 1 };
+          }
+        }
+      }
+
+      // Special handling for coupon used_count = used_count + 1
+      if (/used_count\s*=\s*used_count\s*\+\s*1/i.test(setPart)) {
+        const code = args[0];
+        const { data: c } = await supabase.from("coupons").select("used_count").eq("code", code).maybeSingle();
+        if (c) {
+          await supabase.from("coupons").update({ used_count: (c.used_count || 0) + 1 }).eq("code", code);
+          return { changes: 1 };
+        }
+      }
+
+      // Standard UPDATE
+      const setAssignments = setPart.split(",").map((s) => s.trim());
+      const updates = {};
+      let argIdx = 0;
+      for (const assign of setAssignments) {
+        const colMatch = assign.match(/([a-zA-Z0-9_]+)\s*=\s*\?/);
+        if (colMatch) {
+          updates[colMatch[1]] = args[argIdx++];
+        }
+      }
+
+      let q = supabase.from(table).update(updates);
+      const whereColMatch = wherePart.match(/([a-zA-Z0-9_]+)\s*=\s*\?/);
+      if (whereColMatch) {
+        q = q.eq(whereColMatch[1], args[argIdx++]);
+      }
+      const { error } = await q;
+      if (error) throw error;
+      return { changes: 1 };
+    }
+  }
+
+  // 10. DELETE FROM <table> [WHERE ...]
+  if (/^DELETE FROM\s+/i.test(cleanSql)) {
+    const tableMatch = cleanSql.match(/^DELETE FROM\s+([a-zA-Z0-9_]+)(?:\s+WHERE\s+(.+))?$/i);
+    if (tableMatch) {
+      const table = tableMatch[1];
+      const wherePart = tableMatch[2];
+      let q = supabase.from(table).delete();
+      if (wherePart) {
+        const colEq = wherePart.match(/([a-zA-Z0-9_]+)\s*=\s*(\?|'[^']*'|[0-9]+)/i);
+        const colLte = wherePart.match(/([a-zA-Z0-9_]+)\s*<=\s*(\?|'[^']*'|[0-9]+)/i);
+        if (colEq) {
+          const col = colEq[1];
+          const val = colEq[2] === "?" ? args[0] : colEq[2].replace(/^'|'$/g, "");
+          q = q.eq(col, val);
+        } else if (colLte) {
+          const col = colLte[1];
+          const val = colLte[2] === "?" ? args[0] : colLte[2].replace(/^'|'$/g, "");
+          q = q.lte(col, val);
+        }
+      } else {
+        q = q.neq("id", -999999); // delete all
+      }
+      const { error } = await q;
+      if (error) throw error;
+      return { changes: 1 };
+    }
+  }
+
+  console.warn("Unmatched query on Supabase fallback:", cleanSql);
+  return isSingle ? null : [];
+}
+
+// Low-level SQL queries (used by LibSQL/SQLite fallback or mapped to Supabase)
 async function all(sql, args = []) {
   if (isSupabase) {
-    // If Supabase is active, fallback query or execute
+    return await supabaseQuery(sql, args, false);
   }
   if (!libsqlClient) return [];
   const res = await libsqlClient.execute({ sql, args });
@@ -102,6 +377,9 @@ async function all(sql, args = []) {
 }
 
 async function get(sql, args = []) {
+  if (isSupabase) {
+    return await supabaseQuery(sql, args, true);
+  }
   if (!libsqlClient) return null;
   const res = await libsqlClient.execute({ sql, args });
   if (!res.rows || res.rows.length === 0) return null;
@@ -109,6 +387,9 @@ async function get(sql, args = []) {
 }
 
 async function run(sql, args = []) {
+  if (isSupabase) {
+    return await supabaseQuery(sql, args, true);
+  }
   if (!libsqlClient) return { changes: 0 };
   const res = await libsqlClient.execute({ sql, args });
   return {
@@ -118,11 +399,20 @@ async function run(sql, args = []) {
 }
 
 async function batch(stmts) {
+  if (isSupabase) {
+    const results = [];
+    for (const s of stmts) {
+      if (typeof s === "string") results.push(await run(s));
+      else results.push(await run(s.sql, s.args || []));
+    }
+    return results;
+  }
   if (!libsqlClient) return [];
   return await libsqlClient.batch(stmts, "write");
 }
 
 async function exec(sql) {
+  if (isSupabase) return;
   if (!libsqlClient) return;
   return await libsqlClient.executeMultiple(sql);
 }
@@ -404,383 +694,6 @@ async function close() {
   }
 }
 
-// -------------------------------------------------------------
-// Unified Data Access Functions (Supabase + LibSQL/SQLite)
-// -------------------------------------------------------------
-
-// Settings
-async function getSettings() {
-  if (isSupabase) {
-    const { data } = await supabase.from("settings").select("key, value");
-    const s = {};
-    if (data) for (const r of data) s[r.key] = r.value;
-    return s;
-  }
-  const rows = await all("SELECT key, value FROM settings");
-  const s = {};
-  for (const r of rows) s[r.key] = r.value;
-  return s;
-}
-
-async function saveSettings(obj) {
-  if (isSupabase) {
-    const upserts = Object.entries(obj).map(([key, value]) => ({ key, value }));
-    await supabase.from("settings").upsert(upserts);
-    return;
-  }
-  for (const [k, v] of Object.entries(obj)) {
-    await run("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [k, v]);
-  }
-}
-
-// Products
-async function getProducts() {
-  if (isSupabase) {
-    const { data } = await supabase.from("products").select("id, name, tag, badge, price, variant, stock, sold").order("id");
-    return data || [];
-  }
-  return await all("SELECT id, name, tag, badge, price, variant, stock, sold FROM products ORDER BY id");
-}
-
-async function getProductById(id) {
-  if (isSupabase) {
-    const { data } = await supabase.from("products").select("id, name, tag, badge, price, variant, stock, sold").eq("id", id).maybeSingle();
-    return data;
-  }
-  return await get("SELECT id, name, tag, badge, price, variant, stock, sold FROM products WHERE id = ?", [id]);
-}
-
-async function createProduct(p) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("products").insert(p).select("id, name, tag, badge, price, variant, stock, sold").single();
-    if (error) throw error;
-    return data;
-  }
-  const res = await run(
-    "INSERT INTO products (name, tag, badge, price, variant, stock, sold) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [p.name, p.tag ?? "", p.badge ?? "New", p.price ?? 0, p.variant ?? "mono", p.stock ?? 0, p.sold ?? 0]
-  );
-  return await getProductById(res.lastInsertRowid);
-}
-
-async function updateProduct(id, p) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("products").update(p).eq("id", id).select("id, name, tag, badge, price, variant, stock, sold").maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-  const keys = Object.keys(p);
-  const sets = keys.map((k) => `${k} = ?`).join(", ");
-  const res = await run(`UPDATE products SET ${sets} WHERE id = ?`, [...keys.map((k) => p[k]), id]);
-  if (res.changes === 0) return null;
-  return await getProductById(id);
-}
-
-async function deleteProduct(id) {
-  if (isSupabase) {
-    const { error, count } = await supabase.from("products").delete({ count: "exact" }).eq("id", id);
-    if (error) throw error;
-    return (count || 0) > 0;
-  }
-  const res = await run("DELETE FROM products WHERE id = ?", [id]);
-  return res.changes > 0;
-}
-
-// Couriers
-async function getCouriers() {
-  if (isSupabase) {
-    const { data } = await supabase.from("couriers").select("id, name, tiers, cod_km, phone, active").order("id");
-    return data || [];
-  }
-  return await all("SELECT id, name, tiers, cod_km, phone, active FROM couriers ORDER BY id");
-}
-
-async function getCourierById(id) {
-  if (isSupabase) {
-    const { data } = await supabase.from("couriers").select("id, name, tiers, cod_km, phone, active, created_at").eq("id", id).maybeSingle();
-    return data;
-  }
-  return await get("SELECT id, name, tiers, cod_km, phone, active, created_at FROM couriers WHERE id = ?", [id]);
-}
-
-async function createCourier(c) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("couriers").insert({
-      name: c.name,
-      tiers: typeof c.tiers === "string" ? c.tiers : JSON.stringify(c.tiers),
-      cod_km: c.cod_km,
-      phone: c.phone || "",
-      active: c.active !== undefined ? c.active : 1
-    }).select().single();
-    if (error) throw error;
-    return data;
-  }
-  const res = await run(
-    "INSERT INTO couriers (name, tiers, cod_km, phone, active) VALUES (?, ?, ?, ?, ?)",
-    [c.name, typeof c.tiers === "string" ? c.tiers : JSON.stringify(c.tiers), c.cod_km, c.phone || "", c.active !== undefined ? c.active : 1]
-  );
-  return await getCourierById(res.lastInsertRowid);
-}
-
-async function updateCourier(id, c) {
-  if (isSupabase) {
-    const payload = { ...c };
-    if (payload.tiers && typeof payload.tiers !== "string") payload.tiers = JSON.stringify(payload.tiers);
-    const { data, error } = await supabase.from("couriers").update(payload).eq("id", id).select().maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-  const keys = Object.keys(c);
-  const sets = keys.map((k) => `${k} = ?`).join(", ");
-  const vals = keys.map((k) => (k === "tiers" && typeof c[k] !== "string" ? JSON.stringify(c[k]) : c[k]));
-  const res = await run(`UPDATE couriers SET ${sets} WHERE id = ?`, [...vals, id]);
-  if (res.changes === 0) return null;
-  return await getCourierById(id);
-}
-
-async function deleteCourier(id) {
-  if (isSupabase) {
-    const { error, count } = await supabase.from("couriers").delete({ count: "exact" }).eq("id", id);
-    if (error) throw error;
-    return (count || 0) > 0;
-  }
-  const res = await run("DELETE FROM couriers WHERE id = ?", [id]);
-  return res.changes > 0;
-}
-
-// Coupons
-async function getCoupon(code) {
-  if (isSupabase) {
-    const { data } = await supabase.from("coupons").select("code, type, value, min_order, max_uses, used_count, expires_at, active").eq("code", code).maybeSingle();
-    return data;
-  }
-  return await get("SELECT code, type, value, min_order, max_uses, used_count, expires_at, active FROM coupons WHERE code = ?", [code]);
-}
-
-async function getCoupons() {
-  if (isSupabase) {
-    const { data } = await supabase.from("coupons").select("code, type, value, min_order, max_uses, used_count, expires_at, active, created_at").order("code");
-    return data || [];
-  }
-  return await all("SELECT code, type, value, min_order, max_uses, used_count, expires_at, active, created_at FROM coupons ORDER BY code");
-}
-
-async function createCoupon(c) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("coupons").insert(c).select().single();
-    if (error) throw error;
-    return data;
-  }
-  await run(
-    "INSERT INTO coupons (code, type, value, min_order, max_uses, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
-    [c.code, c.type, c.value, c.min_order, c.max_uses, c.expires_at]
-  );
-  return await getCoupon(c.code);
-}
-
-async function updateCoupon(code, c) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("coupons").update(c).eq("code", code).select().maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-  const keys = Object.keys(c);
-  const sets = keys.map((k) => `${k} = ?`).join(", ");
-  await run(`UPDATE coupons SET ${sets} WHERE code = ?`, [...keys.map((k) => c[k]), code]);
-  return await getCoupon(code);
-}
-
-async function deleteCoupon(code) {
-  if (isSupabase) {
-    const { error, count } = await supabase.from("coupons").delete({ count: "exact" }).eq("code", code);
-    if (error) throw error;
-    return (count || 0) > 0;
-  }
-  const res = await run("DELETE FROM coupons WHERE code = ?", [code]);
-  return res.changes > 0;
-}
-
-// Flash Sales
-async function getActiveFlashSale(now) {
-  if (isSupabase) {
-    const { data } = await supabase.from("flash_sales").select("id, name, discount_percent").eq("active", 1).lte("starts_at", now).gt("ends_at", now).order("id", { ascending: false }).limit(1).maybeSingle();
-    return data;
-  }
-  return await get("SELECT id, name, discount_percent FROM flash_sales WHERE active = 1 AND starts_at <= ? AND ends_at > ? ORDER BY id DESC LIMIT 1", [now, now]);
-}
-
-async function getFlashSales() {
-  if (isSupabase) {
-    const { data } = await supabase.from("flash_sales").select("id, name, discount_percent, starts_at, ends_at, active, created_at").order("id", { ascending: false });
-    return data || [];
-  }
-  return await all("SELECT id, name, discount_percent, starts_at, ends_at, active, created_at FROM flash_sales ORDER BY id DESC");
-}
-
-async function createFlashSale(f) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("flash_sales").insert(f).select().single();
-    if (error) throw error;
-    return data;
-  }
-  const res = await run("INSERT INTO flash_sales (name, discount_percent, starts_at, ends_at) VALUES (?, ?, ?, ?)", [f.name, f.discount_percent, f.starts_at, f.ends_at]);
-  return await get("SELECT id, name, discount_percent, starts_at, ends_at, active, created_at FROM flash_sales WHERE id = ?", [res.lastInsertRowid]);
-}
-
-async function updateFlashSale(id, f) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("flash_sales").update(f).eq("id", id).select().maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-  const keys = Object.keys(f);
-  const sets = keys.map((k) => `${k} = ?`).join(", ");
-  await run(`UPDATE flash_sales SET ${sets} WHERE id = ?`, [...keys.map((k) => f[k]), id]);
-  return await get("SELECT id, name, discount_percent, starts_at, ends_at, active, created_at FROM flash_sales WHERE id = ?", [id]);
-}
-
-async function deleteFlashSale(id) {
-  if (isSupabase) {
-    const { error, count } = await supabase.from("flash_sales").delete({ count: "exact" }).eq("id", id);
-    if (error) throw error;
-    return (count || 0) > 0;
-  }
-  const res = await run("DELETE FROM flash_sales WHERE id = ?", [id]);
-  return res.changes > 0;
-}
-
-// Drops
-async function getNextDrop() {
-  if (isSupabase) {
-    const { data } = await supabase.from("drops").select("id, name, product_id, release_at, queue_enabled, products(name)").order("release_at", { ascending: true }).limit(1).maybeSingle();
-    if (!data) return null;
-    return {
-      id: data.id,
-      name: data.name,
-      product_id: data.product_id,
-      release_at: data.release_at,
-      queue_enabled: data.queue_enabled,
-      product_name: data.products ? data.products.name : null
-    };
-  }
-  return await get("SELECT d.id, d.name, d.product_id, d.release_at, d.queue_enabled, p.name AS product_name FROM drops d LEFT JOIN products p ON p.id = d.product_id ORDER BY d.release_at ASC LIMIT 1");
-}
-
-async function getDrops() {
-  if (isSupabase) {
-    const { data } = await supabase.from("drops").select("id, name, product_id, release_at, queue_enabled, created_at, products(name)").order("release_at", { ascending: true });
-    return (data || []).map((d) => ({
-      id: d.id,
-      name: d.name,
-      product_id: d.product_id,
-      release_at: d.release_at,
-      queue_enabled: d.queue_enabled,
-      created_at: d.created_at,
-      product_name: d.products ? d.products.name : null
-    }));
-  }
-  return await all("SELECT d.id, d.name, d.product_id, d.release_at, d.queue_enabled, p.name AS product_name, d.created_at FROM drops d LEFT JOIN products p ON p.id = d.product_id ORDER BY d.release_at ASC");
-}
-
-async function createDrop(d) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("drops").insert(d).select("id, name, product_id, release_at, queue_enabled, created_at, products(name)").single();
-    if (error) throw error;
-    return { ...data, product_name: data.products ? data.products.name : null };
-  }
-  const res = await run("INSERT INTO drops (name, product_id, release_at, queue_enabled) VALUES (?, ?, ?, ?)", [d.name, d.product_id, d.release_at, d.queue_enabled]);
-  return await get("SELECT d.id, d.name, d.product_id, d.release_at, d.queue_enabled, p.name AS product_name, d.created_at FROM drops d LEFT JOIN products p ON p.id = d.product_id WHERE d.id = ?", [res.lastInsertRowid]);
-}
-
-async function updateDrop(id, d) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("drops").update(d).eq("id", id).select("id, name, product_id, release_at, queue_enabled, created_at, products(name)").maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    return { ...data, product_name: data.products ? data.products.name : null };
-  }
-  const keys = Object.keys(d);
-  const sets = keys.map((k) => `${k} = ?`).join(", ");
-  await run(`UPDATE drops SET ${sets} WHERE id = ?`, [...keys.map((k) => d[k]), id]);
-  return await get("SELECT d.id, d.name, d.product_id, d.release_at, d.queue_enabled, p.name AS product_name, d.created_at FROM drops d LEFT JOIN products p ON p.id = d.product_id WHERE d.id = ?", [id]);
-}
-
-async function deleteDrop(id) {
-  if (isSupabase) {
-    const { error, count } = await supabase.from("drops").delete({ count: "exact" }).eq("id", id);
-    if (error) throw error;
-    return (count || 0) > 0;
-  }
-  const res = await run("DELETE FROM drops WHERE id = ?", [id]);
-  return res.changes > 0;
-}
-
-// Referrals
-async function getReferral(code) {
-  if (isSupabase) {
-    const { data } = await supabase.from("referrals").select("code, owner_name, owner_email, max_uses, used_count, active").eq("code", code).maybeSingle();
-    return data;
-  }
-  return await get("SELECT code, owner_name, owner_email, max_uses, used_count, active FROM referrals WHERE code = ?", [code]);
-}
-
-async function getReferrals() {
-  if (isSupabase) {
-    const { data } = await supabase.from("referrals").select("code, owner_name, owner_email, max_uses, used_count, active, created_at").order("created_at", { ascending: false });
-    return data || [];
-  }
-  return await all("SELECT code, owner_name, owner_email, max_uses, used_count, active, created_at FROM referrals ORDER BY created_at DESC, code");
-}
-
-async function createReferral(r) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("referrals").insert(r).select().single();
-    if (error) throw error;
-    return data;
-  }
-  await run("INSERT INTO referrals (code, owner_name, owner_email, max_uses) VALUES (?, ?, ?, ?)", [r.code, r.owner_name, r.owner_email, r.max_uses]);
-  return await getReferral(r.code);
-}
-
-async function updateReferral(code, r) {
-  if (isSupabase) {
-    const { data, error } = await supabase.from("referrals").update(r).eq("code", code).select().maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-  const keys = Object.keys(r);
-  const sets = keys.map((k) => `${k} = ?`).join(", ");
-  await run(`UPDATE referrals SET ${sets} WHERE code = ?`, [...keys.map((k) => r[k]), code]);
-  return await getReferral(code);
-}
-
-async function deleteReferral(code) {
-  if (isSupabase) {
-    const { error, count } = await supabase.from("referrals").delete({ count: "exact" }).eq("code", code);
-    if (error) throw error;
-    return (count || 0) > 0;
-  }
-  const res = await run("DELETE FROM referrals WHERE code = ?", [code]);
-  return res.changes > 0;
-}
-
-// Members
-async function getMember(email) {
-  if (isSupabase) {
-    const { data } = await supabase.from("members").select("email, name, points, birth_month, birth_day").eq("email", email).maybeSingle();
-    return data;
-  }
-  return await get("SELECT email, name, points, birth_month, birth_day FROM members WHERE email = ?", [email]);
-}
-
-async function getMembers() {
-  if (isSupabase) {
-    const { data } = await supabase.from("members").select("email, name, points, birth_month, birth_day, created_at").order("points", { ascending: false });
-    return data || [];
-  }
-  return await all("SELECT email, name, points, birth_month, birth_day, created_at, (SELECT COUNT(*) FROM orders o WHERE o.email = m.email AND o.status != 'cancelled') AS orders FROM members m ORDER BY m.points DESC");
-}
-
 module.exports = {
   isSupabase,
   supabase,
@@ -791,40 +704,5 @@ module.exports = {
   batch,
   exec,
   ensureInit,
-  close,
-  // High-level repository helpers
-  getSettings,
-  saveSettings,
-  getProducts,
-  getProductById,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  getCouriers,
-  getCourierById,
-  createCourier,
-  updateCourier,
-  deleteCourier,
-  getCoupon,
-  getCoupons,
-  createCoupon,
-  updateCoupon,
-  deleteCoupon,
-  getActiveFlashSale,
-  getFlashSales,
-  createFlashSale,
-  updateFlashSale,
-  deleteFlashSale,
-  getNextDrop,
-  getDrops,
-  createDrop,
-  updateDrop,
-  deleteDrop,
-  getReferral,
-  getReferrals,
-  createReferral,
-  updateReferral,
-  deleteReferral,
-  getMember,
-  getMembers
+  close
 };
