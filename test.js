@@ -505,7 +505,7 @@ async function test(name, fn) {
     const login = await request(app).post("/api/admin/login").send({ password: "kickstorm-admin" }).expect(200);
     assert.ok(login.body.expiresAt);
     const hash = crypto.createHash("sha256").update(login.body.token).digest("hex");
-    db.prepare("UPDATE admin_tokens SET expires_at = datetime('now','-1 minute') WHERE token_hash = ?").run(hash);
+    await db.run("UPDATE admin_tokens SET expires_at = datetime('now','-1 minute') WHERE token_hash = ?", [hash]);
     await request(app)
       .get("/api/orders")
       .set("Authorization", `Bearer ${login.body.token}`)
@@ -1034,6 +1034,6 @@ async function test(name, fn) {
   });
 
   console.log(`\n${passed} tests passed.`);
-  db.close();
+  await db.close();
   process.exit(process.exitCode || 0);
 })();

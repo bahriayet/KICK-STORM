@@ -10,34 +10,20 @@ const seed = [
   ["Dawn Low — Cream 06", "Casual / Soft Tone", "Limited", 1350000, "cream", 20, 654]
 ];
 
-console.log("Resetting local products...");
-db.exec("DELETE FROM products; DELETE FROM sqlite_sequence WHERE name = 'products';");
-const insert = db.prepare(
-  "INSERT INTO products (name, tag, badge, price, variant, stock, sold) VALUES (?, ?, ?, ?, ?, ?, ?)"
-);
-seed.forEach((row) => insert.run(...row));
-console.log("✓ Local products reset to original 6 items!");
-
-async function syncTurso() {
-  if (!process.env.TURSO_DATABASE_URL) return;
+(async () => {
   try {
-    const { createClient } = require("@libsql/client");
-    const turso = createClient({
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN
-    });
-    console.log("Resetting Turso cloud products...");
-    await turso.execute("DELETE FROM products;");
+    console.log("Resetting products...");
+    await db.run("DELETE FROM products;");
     for (const row of seed) {
-      await turso.execute({
-        sql: "INSERT INTO products (name, tag, badge, price, variant, stock, sold) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        args: row
-      });
+      await db.run(
+        "INSERT INTO products (name, tag, badge, price, variant, stock, sold) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        row
+      );
     }
-    console.log("✓ Turso cloud products reset to original 6 items!");
+    console.log("✓ Products reset to original 6 items!");
   } catch (err) {
-    console.error("Turso reset error:", err.message);
+    console.error("Reset error:", err.message);
+  } finally {
+    await db.close();
   }
-}
-
-syncTurso();
+})();

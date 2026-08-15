@@ -1,10 +1,11 @@
 # Dependencies
 node_modules/
 
-# Database
+# Database & Local Uploads
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/uploads/
 data.sqlite3
 scratch_*
 
@@ -22,6 +23,7 @@ server.err
 .DS_Store
 Thumbs.db
 
-# Editor
+# Editor & Agents
 .vscode/
 .idea/
+.agents/
