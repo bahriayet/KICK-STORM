@@ -72,7 +72,7 @@ mm.add("(prefers-reduced-motion: no-preference)", function () {
   });
 
   gsap.set(".pin-a", { autoAlpha: 1, yPercent: 0 });
-  gsap.set(".pin-b, .pin-c", { autoAlpha: 0, yPercent: 15 });
+  gsap.set(".pin-b, .pin-c", { autoAlpha: 0, yPercent: 12 });
 
   var heroShowcase = null;
   var ceritaShowcase = null;
@@ -86,23 +86,25 @@ mm.add("(prefers-reduced-motion: no-preference)", function () {
     scrollTrigger: {
       trigger: ".pin-section",
       start: "top top",
-      end: "+=260%",
-      scrub: 0.6,
+      end: "+=220%",
+      scrub: 0.5,
       pin: true,
       anticipatePin: 1,
       invalidateOnRefresh: true
     }
   });
+
+  // Seamless, overlapping crossfade between story scenes (eliminates blank gaps)
   pinTl
-    .to(".pin-shoe", { xPercent: 10, rotation: 3, scale: 1.03, duration: 1.0 }, 0)
-    .to(".pin-a", { autoAlpha: 0, yPercent: -15, duration: 0.3 }, 0.7)
+    // Scene 01 -> 02 crossfade
+    .to(".pin-a", { autoAlpha: 0, yPercent: -12, duration: 0.6, ease: "power2.inOut" }, 0.8)
+    .fromTo(".pin-b", { autoAlpha: 0, yPercent: 12 }, { autoAlpha: 1, yPercent: 0, duration: 0.6, ease: "power2.inOut" }, 0.9)
+    .to(".shoe-3d-pin, .pin-shoe", { rotation: -3, scale: 1.04, duration: 1.0, ease: "sine.inOut" }, 0.8)
 
-    .fromTo(".pin-b", { autoAlpha: 0, yPercent: 15 }, { autoAlpha: 1, yPercent: 0, duration: 0.3 }, 1.0)
-    .to(".pin-shoe", { rotation: -3, scale: 1.06, duration: 1.0 }, 1.0)
-    .to(".pin-b", { autoAlpha: 0, yPercent: -15, duration: 0.3 }, 1.7)
-
-    .fromTo(".pin-c", { autoAlpha: 0, yPercent: 15 }, { autoAlpha: 1, yPercent: 0, duration: 0.3 }, 2.0)
-    .to(".pin-shoe", { rotation: 2, scale: 1.08, duration: 1.0 }, 2.0);
+    // Scene 02 -> 03 crossfade
+    .to(".pin-b", { autoAlpha: 0, yPercent: -12, duration: 0.6, ease: "power2.inOut" }, 1.8)
+    .fromTo(".pin-c", { autoAlpha: 0, yPercent: 12 }, { autoAlpha: 1, yPercent: 0, duration: 0.6, ease: "power2.inOut" }, 1.9)
+    .to(".shoe-3d-pin, .pin-shoe", { rotation: 2, scale: 1.06, duration: 1.0, ease: "sine.inOut" }, 1.8);
 
   pinTl.eventCallback("onUpdate", function () {
     if (ceritaShowcase) {
@@ -112,6 +114,11 @@ mm.add("(prefers-reduced-motion: no-preference)", function () {
 
   gsap.to(".pin-bg-word", {
     opacity: 0.55, duration: 2.2, repeat: -1, yoyo: true, ease: "sine.inOut"
+  });
+
+  // Ensure ScrollTrigger recalculated when all assets load
+  window.addEventListener("load", function () {
+    if (window.ScrollTrigger) ScrollTrigger.refresh();
   });
 });
 
