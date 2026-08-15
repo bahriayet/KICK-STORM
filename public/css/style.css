@@ -689,11 +689,11 @@ button,input{font-family:inherit;font-size:inherit}
 .tl-label{font-size:.82rem;font-weight:600}
 .tl-time{font-size:.72rem;color:var(--muted);margin-left:auto}
 
-.pin-stage{position:relative;background:var(--surface);z-index:5}
-.pin-section{min-height:600px;height:100svh;position:relative;display:flex;align-items:center;overflow:hidden;background:var(--surface)}
+.pin-stage{position:relative;background:var(--surface);z-index:15}
+.pin-section{min-height:620px;height:100svh;position:relative;display:flex;align-items:center;overflow:hidden;background:var(--surface)}
 @supports not (height:100svh){
   .hero{min-height:100vh}
-  .pin-section{height:100vh;min-height:600px}
+  .pin-section{height:100vh;min-height:620px}
 }
 .pin-bg-word{
   position:absolute;right:-2%;top:50%;transform:translateY(-50%);
@@ -702,7 +702,7 @@ button,input{font-family:inherit;font-size:inherit}
   opacity:.7;filter:drop-shadow(0 0 34px rgba(214,255,63,.14));
 }
 .shoe-3d-pin, .pin-shoe {
-  position:absolute;right:6%;top:50%;width:min(42vw,560px);height:420px;transform:translateY(-50%);
+  position:absolute;right:clamp(20px, 5vw, 80px);top:calc(50% + 35px);width:min(44vw,540px);height:min(55vh,420px);transform:translateY(-50%);
   filter:drop-shadow(0 40px 70px rgba(0,0,0,.6));pointer-events:none;z-index:3;
 }
 .story-showcase-wrap {
@@ -773,17 +773,17 @@ button,input{font-family:inherit;font-size:inherit}
   pointer-events: none;
 }
 .pin-slide{
-  position:absolute;inset:0;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:clamp(24px,4vw,60px);
-  padding:0 clamp(20px,6vw,96px);pointer-events:none;
+  position:absolute;inset:0;display:grid;grid-template-columns:1.15fr .85fr;align-items:center;gap:clamp(24px,4vw,60px);
+  padding:calc(85px + clamp(10px, 2vh, 30px)) clamp(20px,6vw,96px) clamp(30px, 3vh, 50px);pointer-events:none;
 }
-.pin-slide-content{pointer-events:auto;position:relative;z-index:2}
+.pin-slide-content{pointer-events:auto;position:relative;z-index:4;max-width:540px}
 .js .pin-slide.pin-b,
 .js .pin-slide.pin-c{opacity:0;visibility:hidden}
-.pin-num{font-family:var(--font-display);font-size:clamp(3rem,8vw,7rem);color:transparent;-webkit-text-stroke:2px var(--volt);line-height:1}
-.pin-title{font-family:var(--font-display);text-transform:uppercase;font-size:clamp(2rem,5vw,4rem);line-height:1.05;margin:14px 0 16px}
-.pin-copy{max-width:44ch;color:var(--muted)}
-.pin-list{margin-top:22px;display:flex;flex-direction:column;gap:10px}
-.pin-list li{list-style:none;display:flex;gap:10px;align-items:center;font-size:.92rem;color:var(--text)}
+.pin-num{font-family:var(--font-display);font-size:clamp(2.4rem,5.5vw,4.8rem);color:transparent;-webkit-text-stroke:2px var(--volt);line-height:1;margin-bottom:4px;display:block}
+.pin-title{font-family:var(--font-display);text-transform:uppercase;font-size:clamp(1.75rem,3.6vw,3.2rem);line-height:1.08;margin:6px 0 14px}
+.pin-copy{max-width:44ch;color:var(--muted);font-size:clamp(0.88rem,1.05vw,0.98rem);line-height:1.55}
+.pin-list{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.pin-list li{list-style:none;display:flex;gap:10px;align-items:center;font-size:.9rem;color:var(--text)}
 .pin-list .tick{color:var(--volt);font-weight:700}
 
 .feature-row{
