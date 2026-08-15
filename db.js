@@ -137,7 +137,15 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
     return isSingle ? res : [res];
   }
 
-  // 4. SELECT AVG(...) FROM orders
+  // 4. SELECT COALESCE(MAX(queue_no), 0) AS n FROM orders WHERE drop_id = ?
+  if (/SELECT COALESCE\(MAX\(queue_no\),\s*0\)\s+AS\s+n\s+FROM\s+orders/i.test(cleanSql)) {
+    const { data } = await supabase.from("orders").select("queue_no").eq("drop_id", args[0]).order("queue_no", { ascending: false }).limit(1);
+    const maxQ = data && data.length > 0 ? Number(data[0].queue_no) || 0 : 0;
+    const res = { n: maxQ };
+    return isSingle ? res : [res];
+  }
+
+  // 5. SELECT AVG(...) FROM orders
   if (/^SELECT AVG\(/i.test(cleanSql)) {
     const { data } = await supabase.from("orders").select("created_at").in("status", ["shipped", "delivered"]);
     let hours = 24;
@@ -150,7 +158,7 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
     return isSingle ? res : [res];
   }
 
-  // 5. Products sold last 7 days: SELECT oi.product_id, SUM(oi.qty) AS qty FROM order_items ...
+  // 6. Products sold last 7 days: SELECT oi.product_id, SUM(oi.qty) AS qty FROM order_items ...
   if (/SELECT oi\.product_id,\s*SUM\(oi\.qty\)\s+AS\s+qty/i.test(cleanSql)) {
     const { data } = await supabase.from("order_items").select("product_id, qty, orders!inner(status, created_at)").neq("orders.status", "cancelled");
     const map = {};
@@ -165,7 +173,7 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
     return isSingle ? res[0] || null : res;
   }
 
-  // 6. Drops: SELECT d.id, d.name, d.product_id, ... FROM drops ...
+  // 7. Drops: SELECT d.id, d.name, d.product_id, ... FROM drops ...
   if (/^SELECT .*FROM drops/i.test(cleanSql)) {
     let q = supabase.from("drops").select("id, name, product_id, release_at, queue_enabled, created_at, products(name)").order("release_at", { ascending: true });
     if (/LIMIT 1/i.test(cleanSql)) q = q.limit(1);
@@ -183,7 +191,7 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
     return isSingle ? (mapped[0] || null) : mapped;
   }
 
-  // 7. General SELECT statements: SELECT ... FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT ...]
+  // 8. General SELECT statements: SELECT ... FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT ...]
   if (/^SELECT\s+/i.test(cleanSql)) {
     const tableMatch = cleanSql.match(/FROM\s+([a-zA-Z0-9_]+)(?:\s+o\b|\s+p\b|\s+d\b|\s+c\b|\s+m\b)?/i);
     if (tableMatch) {
@@ -248,31 +256,56 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
     }
   }
 
-  // 8. INSERT INTO <table> (<cols>) VALUES (<vals>)
+  // 9. INSERT INTO <table> (<cols>) VALUES (<vals>)
   if (/^INSERT INTO\s+/i.test(cleanSql)) {
-    const tableMatch = cleanSql.match(/^INSERT INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)\s*VALUES/i);
+    const tableMatch = cleanSql.match(/^INSERT INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
     if (tableMatch) {
       const table = tableMatch[1];
       const cols = tableMatch[2].split(",").map((c) => c.trim().replace(/^`|`$/g, ""));
+      const valTokens = tableMatch[3].split(",").map((v) => v.trim());
       const row = {};
+      let argIdx = 0;
       cols.forEach((col, i) => {
-        row[col] = args[i];
+        const token = valTokens[i];
+        if (token === "?") {
+          row[col] = args[argIdx++];
+        } else if (token && token.startsWith("'") && token.endsWith("'")) {
+          row[col] = token.slice(1, -1);
+        } else if (token && !isNaN(Number(token))) {
+          row[col] = Number(token);
+        } else {
+          row[col] = args[argIdx++];
+        }
       });
 
-      // Special handling for ON CONFLICT (key) DO UPDATE
-      if (/ON CONFLICT/i.test(cleanSql)) {
-        const { data, error } = await supabase.from(table).upsert(row).select();
+      // Special handling for members ON CONFLICT(email) DO UPDATE
+      if (table === "members" && /ON CONFLICT/i.test(cleanSql)) {
+        const { data: existing } = await supabase.from("members").select("points").eq("email", row.email).maybeSingle();
+        if (existing) {
+          const newPoints = (Number(existing.points) || 0) + (Number(row.points) || 0);
+          await supabase.from("members").update({ points: newPoints, name: row.name }).eq("email", row.email);
+          return { changes: 1 };
+        } else {
+          await supabase.from("members").insert(row);
+          return { changes: 1 };
+        }
+      }
+
+      // Special handling for settings ON CONFLICT(key)
+      if (table === "settings" && /ON CONFLICT/i.test(cleanSql)) {
+        const { error } = await supabase.from("settings").upsert(row);
         if (error) throw error;
-        return { lastInsertRowid: data && data[0] ? data[0].id : undefined, changes: 1 };
+        return { changes: 1 };
       }
 
       const { data, error } = await supabase.from(table).insert(row).select();
       if (error) throw error;
-      return { lastInsertRowid: data && data[0] ? data[0].id : undefined, changes: 1 };
+      const lastId = data && data[0] ? Number(data[0].id) : undefined;
+      return { lastInsertRowid: lastId, changes: 1 };
     }
   }
 
-  // 9. UPDATE <table> SET ... WHERE ...
+  // 10. UPDATE <table> SET ... WHERE ...
   if (/^UPDATE\s+/i.test(cleanSql)) {
     const tableMatch = cleanSql.match(/^UPDATE\s+([a-zA-Z0-9_]+)\s+SET\s+(.+)\s+WHERE\s+(.+)$/i);
     if (tableMatch) {
@@ -287,14 +320,14 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
         if (id) {
           const { data: p } = await supabase.from("products").select("stock, sold").eq("id", id).maybeSingle();
           if (p) {
-            let newStock = p.stock;
-            let newSold = p.sold;
+            let newStock = Number(p.stock) || 0;
+            let newSold = Number(p.sold) || 0;
             if (/stock\s*=\s*stock\s*-\s*\?/i.test(setPart)) {
-              newStock -= args[0];
-              newSold += args[1];
+              newStock -= Number(args[0]);
+              newSold += Number(args[1]);
             } else if (/stock\s*=\s*stock\s*\+\s*\?/i.test(setPart)) {
-              newStock += args[0];
-              newSold = Math.max(0, newSold - args[1]);
+              newStock += Number(args[0]);
+              newSold = Math.max(0, newSold - Number(args[1]));
             }
             await supabase.from("products").update({ stock: newStock, sold: newSold }).eq("id", id);
             return { changes: 1 };
@@ -308,6 +341,16 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
         const { data: c } = await supabase.from("coupons").select("used_count").eq("code", code).maybeSingle();
         if (c) {
           await supabase.from("coupons").update({ used_count: (c.used_count || 0) + 1 }).eq("code", code);
+          return { changes: 1 };
+        }
+      }
+
+      // Special handling for referral used_count = used_count + 1
+      if (table === "referrals" && /used_count\s*=\s*used_count\s*\+\s*1/i.test(setPart)) {
+        const code = args[0];
+        const { data: r } = await supabase.from("referrals").select("used_count").eq("code", code).maybeSingle();
+        if (r) {
+          await supabase.from("referrals").update({ used_count: (r.used_count || 0) + 1 }).eq("code", code);
           return { changes: 1 };
         }
       }
@@ -334,7 +377,7 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
     }
   }
 
-  // 10. DELETE FROM <table> [WHERE ...]
+  // 11. DELETE FROM <table> [WHERE ...]
   if (/^DELETE FROM\s+/i.test(cleanSql)) {
     const tableMatch = cleanSql.match(/^DELETE FROM\s+([a-zA-Z0-9_]+)(?:\s+WHERE\s+(.+))?$/i);
     if (tableMatch) {
@@ -354,7 +397,7 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
           q = q.lte(col, val);
         }
       } else {
-        q = q.neq("id", -999999); // delete all
+        q = q.neq("id", -999999);
       }
       const { error } = await q;
       if (error) throw error;
