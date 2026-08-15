@@ -1427,12 +1427,17 @@ document.getElementById("checkout-form").addEventListener("submit", function (e)
     payload.lat = Number(lat);
     payload.lng = Number(lng);
   }
+  var idempotencyKey = "ks_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+  payload.idempotency_key = idempotencyKey;
   msg.className = "form-msg";
   msg.textContent = "Memproses pesanan...";
   btn.disabled = true;
   fetch("/api/orders", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
     body: JSON.stringify(payload)
   }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {

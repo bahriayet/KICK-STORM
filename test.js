@@ -1069,6 +1069,41 @@ async function test(name, fn) {
     }).expect(200);
   });
 
+  await test("checkout: proteksi idempotency key -> pesanan tidak terduplikasi", async () => {
+    const key = "test_idem_" + Date.now();
+    const before = await request(app).get("/api/products").expect(200);
+    const p = before.body.products[0];
+    const first = await request(app)
+      .post("/api/orders")
+      .set("Idempotency-Key", key)
+      .send({
+        name: "Idem User", email: "idem@kickstorm.id", address: "Jakarta",
+        items: [{ id: p.id, qty: 1 }]
+      })
+      .expect(201);
+    
+    // Request kedua dengan Idempotency-Key yang sama
+    const second = await request(app)
+      .post("/api/orders")
+      .set("Idempotency-Key", key)
+      .send({
+        name: "Idem User", email: "idem@kickstorm.id", address: "Jakarta",
+        items: [{ id: p.id, qty: 1 }]
+      })
+      .expect(201);
+    
+    assert.strictEqual(first.body.orderId, second.body.orderId);
+  });
+
+  await test("lacak: privacy masking aktif saat dilacak tanpa email", async () => {
+    const res = await request(app).get(`/api/track?orderId=${orderId}`).expect(200);
+    assert.strictEqual(res.body.order.masked, true);
+    assert.ok(res.body.order.email.includes("***"));
+    assert.ok(res.body.order.customer_name.includes("*"));
+    assert.ok(res.body.order.address.includes("disamarkan"));
+    assert.strictEqual(res.body.order.maps_url, null);
+  });
+
   await test("unknown endpoint -> 404", async () => {
     await request(app).get("/api/hal-hal").expect(404);
   });
