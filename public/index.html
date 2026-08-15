@@ -304,11 +304,12 @@
           <p class="section-kicker" data-anim>Order Tracker</p>
           <h2 class="section-title" data-anim>Lacak<br>Pesananmu</h2>
         </div>
-        <p class="section-desc" data-anim>Masukkan nomor pesanan dan email pemesan untuk melihat status pesananmu secara langsung.</p>
+        <p class="section-desc" data-anim>Masukkan nomor pesanan (mis. 12 atau #12), atau nomor resi kurir beserta email pemesan.</p>
       </div>
+      <div id="track-history-pill" class="track-history-pill" hidden></div>
       <form class="news-form track-form" data-anim id="track-form">
-        <input type="text" required placeholder="Nomor pesanan, mis. 12" aria-label="Nomor pesanan" id="track-id" inputmode="numeric">
-        <input type="email" required placeholder="email pemesan..." aria-label="Email pemesan" id="track-email">
+        <input type="text" required placeholder="Nomor pesanan (mis. 12 / #12) atau No. Resi" aria-label="Nomor pesanan atau nomor resi" id="track-id" autocomplete="off">
+        <input type="email" placeholder="email pemesan..." aria-label="Email pemesan" id="track-email" autocomplete="email">
         <button class="btn btn-primary" type="submit" style="padding:12px 22px" id="track-btn">Lacak</button>
       </form>
       <div class="track-result" id="track-result" aria-live="polite"></div>

@@ -204,7 +204,7 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
         const conditions = wherePart.split(/\s+AND\s+/i);
         let argIdx = 0;
         for (const cond of conditions) {
-          const colEq = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*=\s*(\?|'[^']*'|[0-9]+)/i);
+          const colEq = cond.match(/(?:LOWER|UPPER)?\(?(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\)?\s*=\s*(\?|'[^']*'|[0-9]+)/i);
           const colLte = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*<=\s*(\?|'[^']*'|[0-9]+)/i);
           const colGt = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*>\s*(\?|'[^']*'|[0-9]+)/i);
           const colNeq = cond.match(/(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)\s*!=\s*(\?|'[^']*'|[0-9]+)/i);
@@ -212,7 +212,11 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
           if (colEq) {
             const col = colEq[1];
             const val = colEq[2] === "?" ? args[argIdx++] : colEq[2].replace(/^'|'$/g, "");
-            q = q.eq(col, val);
+            if ((col.toLowerCase() === "email" || col.toLowerCase() === "tracking_number") && typeof val === "string") {
+              q = q.ilike(col, val.trim());
+            } else {
+              q = q.eq(col, val);
+            }
           } else if (colLte) {
             const col = colLte[1];
             const val = colLte[2] === "?" ? args[argIdx++] : colLte[2].replace(/^'|'$/g, "");
