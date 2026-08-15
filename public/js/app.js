@@ -1,3 +1,12 @@
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -1730,12 +1739,31 @@ window.copyTextToClipboard = function (text, btnEl) {
   }
 };
 
-document.getElementById("track-form").addEventListener("submit", function (e) {
-  e.preventDefault();
-  var orderId = document.getElementById("track-id").value.trim();
-  var email = document.getElementById("track-email").value.trim();
-  executeTrack(orderId, email);
-});
+var trackForm = document.getElementById("track-form");
+if (trackForm) {
+  trackForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var idInput = document.getElementById("track-id");
+    var emailInput = document.getElementById("track-email");
+    var orderId = idInput ? idInput.value.trim() : "";
+    var email = emailInput ? emailInput.value.trim() : "";
+    executeTrack(orderId, email);
+  });
+}
+
+var trackBtn = document.getElementById("track-btn");
+if (trackBtn) {
+  trackBtn.addEventListener("click", function (e) {
+    var idInput = document.getElementById("track-id");
+    var emailInput = document.getElementById("track-email");
+    var orderId = idInput ? idInput.value.trim() : "";
+    var email = emailInput ? emailInput.value.trim() : "";
+    if (orderId || email) {
+      e.preventDefault();
+      executeTrack(orderId, email);
+    }
+  });
+}
 
 // Inisialisasi pill riwayat pesanan dan cek URL jika ada parameter
 renderTrackHistoryPill();
