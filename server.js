@@ -1665,10 +1665,23 @@ app.get("/api/admin/referrals", requireAdmin, async (req, res) => {
 
 app.post("/api/admin/referrals", requireAdmin, async (req, res) => {
   const owner_name = String(req.body.owner_name || "").trim();
-  const owner_email = String(req.body.owner_email || "").trim().toLowerCase();
+  let owner_email = String(req.body.owner_email || "").trim().toLowerCase();
   const max_uses = Number.parseInt(req.body.max_uses, 10);
   if (!owner_name || owner_name.length > 80) return res.status(400).json({ error: "Nama pemilik tidak valid." });
-  if (!validEmail(owner_email)) return res.status(400).json({ error: "Email pemilik tidak valid." });
+  
+  if (!owner_email) {
+    const slug = owner_name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    owner_email = (slug || "owner") + "@referral.kickstorm.id";
+  } else if (!validEmail(owner_email)) {
+    if (owner_email.includes("@")) {
+      if (!owner_email.includes(".")) owner_email += ".com";
+      if (!validEmail(owner_email)) return res.status(400).json({ error: "Format email pemilik tidak valid (contoh: nama@email.com)." });
+    } else {
+      const cleanSlug = owner_email.replace(/[^a-z0-9._-]/g, "");
+      owner_email = (cleanSlug || "user") + "@referral.kickstorm.id";
+    }
+  }
+
   if (!Number.isInteger(max_uses) || max_uses < 1 || max_uses > 100000) {
     return res.status(400).json({ error: "Kuota pemakaian tidak valid." });
   }

@@ -1315,8 +1315,8 @@
       code: $("r-code").value.trim(),
       max_uses: Number($("r-max").value) || 1
     };
-    if (!payload.owner_name || !payload.owner_email) {
-      msg.textContent = "Nama dan email pemilik wajib diisi.";
+    if (!payload.owner_name) {
+      msg.textContent = "Nama pemilik / referer wajib diisi.";
       return;
     }
     api("/api/admin/referrals", { method: "POST", body: JSON.stringify(payload) }).then(function (res) {
@@ -1324,9 +1324,13 @@
       if (res.ok) {
         toast("Kode " + res.data.referral.code + " dibuat.");
         $("r-name").value = ""; $("r-email").value = ""; $("r-code").value = "";
+        $("r-msg").textContent = "";
         showReferralForm(false);
         renderReferrals();
-      } else toast(res.data.error || "Gagal membuat kode.", true);
+      } else {
+        msg.textContent = res.data.error || "Gagal membuat kode.";
+        toast(res.data.error || "Gagal membuat kode.", true);
+      }
     }).catch(function () { toast("Gagal terhubung.", true); });
   });
 
