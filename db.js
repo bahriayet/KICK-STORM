@@ -349,33 +349,63 @@ async function supabaseQuery(sql, args = [], isSingle = false) {
       // Special handling for stock/sold adjustments: stock = stock - ?, sold = sold + ?
       if (/stock\s*=\s*stock\s*[-+]/i.test(setPart)) {
         const idMatch = wherePart.match(/id\s*=\s*(\?|[0-9]+)/i);
-        const id = idMatch ? (idMatch[1] === "?" ? args[args.length - 1] : Number(idMatch[1])) : null;
+        let id = null;
+        if (idMatch) {
+          if (idMatch[1] === "?") {
+            id = args[2] !== undefined ? args[2] : args[0];
+          } else {
+            id = Number(idMatch[1]);
+          }
+        }
         if (id) {
           const { data: p } = await supabase.from("products").select("stock, sold").eq("id", id).maybeSingle();
           if (p) {
             let newStock = Number(p.stock) || 0;
             let newSold = Number(p.sold) || 0;
             if (/stock\s*=\s*stock\s*-\s*\?/i.test(setPart)) {
-              newStock -= Number(args[0]);
-              newSold += Number(args[1]);
+              const reqQty = Number(args[0]);
+              if (/stock\s*>=\s*\?/i.test(wherePart) && newStock < reqQty) {
+                return { changes: 0 };
+              }
+              newStock = Math.max(0, newStock - reqQty);
+              newSold += Number(args[1] || reqQty);
             } else if (/stock\s*=\s*stock\s*\+\s*\?/i.test(setPart)) {
               newStock += Number(args[0]);
-              newSold = Math.max(0, newSold - Number(args[1]));
+              newSold = Math.max(0, newSold - Number(args[1] || args[0]));
             }
             await supabase.from("products").update({ stock: newStock, sold: newSold }).eq("id", id);
             return { changes: 1 };
           }
         }
+        return { changes: 0 };
       }
 
       // Special handling for coupon used_count = used_count + 1
-      if (/used_count\s*=\s*used_count\s*\+\s*1/i.test(setPart)) {
+      if (table === "coupons" && /used_count\s*=\s*used_count\s*\+\s*1/i.test(setPart)) {
         const code = args[0];
-        const { data: c } = await supabase.from("coupons").select("used_count").eq("code", code).maybeSingle();
+        const { data: c } = await supabase.from("coupons").select("used_count, max_uses").eq("code", code).maybeSingle();
         if (c) {
+          if (c.max_uses > 0 && (c.used_count || 0) >= c.max_uses) {
+            return { changes: 0 };
+          }
           await supabase.from("coupons").update({ used_count: (c.used_count || 0) + 1 }).eq("code", code);
           return { changes: 1 };
         }
+        return { changes: 0 };
+      }
+
+      // Special handling for referral used_count = used_count + 1
+      if (table === "referrals" && /used_count\s*=\s*used_count\s*\+\s*1/i.test(setPart)) {
+        const code = args[0];
+        const { data: r } = await supabase.from("referrals").select("used_count, max_uses").eq("code", code).maybeSingle();
+        if (r) {
+          if (r.max_uses > 0 && (r.used_count || 0) >= r.max_uses) {
+            return { changes: 0 };
+          }
+          await supabase.from("referrals").update({ used_count: (r.used_count || 0) + 1 }).eq("code", code);
+          return { changes: 1 };
+        }
+        return { changes: 0 };
       }
 
       // Special handling for referral used_count = used_count + 1

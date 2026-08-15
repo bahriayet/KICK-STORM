@@ -261,6 +261,36 @@ if (!require("fs").existsSync(uploadsDir)) {
 }
 app.use("/uploads", express.static(uploadsDir));
 
+const idempotencyStore = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of idempotencyStore.entries()) {
+    if (now - v.ts > 60000) idempotencyStore.delete(k);
+  }
+}, 30000);
+
+function maskText(str) {
+  if (!str) return "";
+  const s = String(str).trim();
+  if (s.length <= 2) return s[0] + "*";
+  if (s.length <= 4) return s.slice(0, 1) + "**" + s.slice(-1);
+  return s.slice(0, 2) + "***" + s.slice(-2);
+}
+
+function maskEmail(email) {
+  if (!email || typeof email !== "string" || !email.includes("@")) return "***@***.***";
+  const [name, domain] = email.split("@");
+  const maskedName = name.length <= 2 ? name[0] + "***" : name.slice(0, 2) + "***" + name.slice(-1);
+  return maskedName + "@" + domain;
+}
+
+function maskAddress(addr) {
+  if (!addr) return "";
+  const s = String(addr).trim();
+  if (s.length <= 10) return "*** (Disamarkan untuk privasi)";
+  return s.slice(0, 10) + "... (Alamat disamarkan untuk privasi)";
+}
+
 const sseClients = new Set();
 function broadcastOrder(data) {
   const payload = `event: order\ndata: ${JSON.stringify(data)}\n\n`;
@@ -286,6 +316,7 @@ app.get("/api/admin/events", requireAdmin, (req, res) => {
       res.write(": ping\n\n");
     } catch (err) {
       clearInterval(ping);
+      sseClients.delete(res);
     }
   }, 25000);
   req.on("close", () => {
@@ -463,6 +494,10 @@ function extractCoordsFromMapsUrl(url) {
 }
 
 app.post("/api/orders", async (req, res) => {
+  const idemKey = String(req.headers["idempotency-key"] || req.body?.idempotency_key || "").trim();
+  if (idemKey && idempotencyStore.has(idemKey)) {
+    return res.status(201).json(idempotencyStore.get(idemKey).data);
+  }
   const { name, email, address, items, notes } = req.body || {};
   if (!name || !email || !address || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "Data pesanan tidak lengkap." });
@@ -649,6 +684,52 @@ app.post("/api/orders", async (req, res) => {
   const paymentFlow = String(s.payment_flow || "0") === "1";
   const orderStatus = paymentFlow && paymentMethod === "transfer" ? "awaiting_payment" : "pending";
 
+  // 1. Atomic decrement stock for all non-custom items first
+  const decremented = [];
+  for (const c of cart) {
+    if (!c.custom) {
+      const stockRes = await db.run(
+        "UPDATE products SET stock = stock - ?, sold = sold + ? WHERE id = ? AND stock >= ?",
+        [c.qty, c.qty, c.product.id, c.qty]
+      );
+      if (!stockRes || stockRes.changes === 0) {
+        for (const prev of decremented) {
+          await db.run("UPDATE products SET stock = stock + ?, sold = sold - ? WHERE id = ?", [prev.qty, prev.qty, prev.id]);
+        }
+        return res.status(409).json({ error: `Maaf, stok "${c.product.name}" baru saja habis dibeli pelanggan lain.` });
+      }
+      decremented.push({ id: c.product.id, qty: c.qty });
+    }
+  }
+
+  // 2. Atomic decrement coupon / referral quota if applied
+  if (couponLine) {
+    const coupRes = await db.run(
+      "UPDATE coupons SET used_count = used_count + 1 WHERE code = ? AND (max_uses = 0 OR used_count < max_uses)",
+      [couponLine.coupon.code]
+    );
+    if (!coupRes || coupRes.changes === 0) {
+      for (const prev of decremented) {
+        await db.run("UPDATE products SET stock = stock + ?, sold = sold - ? WHERE id = ?", [prev.qty, prev.qty, prev.id]);
+      }
+      return res.status(409).json({ error: "Kuota kupon telah habis digunakan." });
+    }
+  }
+
+  if (referralLine) {
+    const refRes = await db.run(
+      "UPDATE referrals SET used_count = used_count + 1 WHERE code = ? AND (max_uses = 0 OR used_count < max_uses)",
+      [referralLine.referral.code]
+    );
+    if (!refRes || refRes.changes === 0) {
+      if (couponLine) await db.run("UPDATE coupons SET used_count = used_count - 1 WHERE code = ?", [couponLine.coupon.code]);
+      for (const prev of decremented) {
+        await db.run("UPDATE products SET stock = stock + ?, sold = sold - ? WHERE id = ?", [prev.qty, prev.qty, prev.id]);
+      }
+      return res.status(409).json({ error: "Kuota kode referral telah habis digunakan." });
+    }
+  }
+
   const orderRes = await db.run(
     "INSERT INTO orders (customer_name, email, address, lat, lng, total, discount, coupon_code, referral_code, flash_sale_id, shipping, notes, status, maps_url, payment_method, courier_id, courier_name, drop_id, queue_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
@@ -677,20 +758,11 @@ app.post("/api/orders", async (req, res) => {
 
   await db.run("INSERT INTO order_status_log (order_id, from_status, to_status) VALUES (?, 'created', ?)", [orderId, orderStatus]);
 
-  if (couponLine) {
-    await db.run("UPDATE coupons SET used_count = used_count + 1 WHERE code = ?", [couponLine.coupon.code]);
-  }
-  if (referralLine) {
-    await db.run("UPDATE referrals SET used_count = used_count + 1 WHERE code = ?", [referralLine.referral.code]);
-  }
   for (const c of cart) {
     await db.run(
       "INSERT INTO order_items (order_id, product_id, product_name, price, qty, size, colorway) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [orderId, c.custom ? null : c.product.id, c.custom ? c.name : c.product.name, c.custom ? c.price : c.product.price, c.qty, c.size, c.custom ? c.colorway : null]
     );
-    if (!c.custom) {
-      await db.run("UPDATE products SET stock = stock - ?, sold = sold + ? WHERE id = ?", [c.qty, c.qty, c.product.id]);
-    }
   }
 
   const points = pointsForOrder(total);
@@ -703,7 +775,7 @@ app.post("/api/orders", async (req, res) => {
   }
 
   broadcastOrder({ id: orderId, customer_name: customerName, total, payment_method: paymentMethod });
-  res.status(201).json({
+  const responseData = {
     orderId,
     subtotal,
     flash: flash ? { name: flash.name, percent: flash.discount_percent, discount: flashDiscount } : null,
@@ -724,7 +796,11 @@ app.post("/api/orders", async (req, res) => {
     message: orderStatus === "awaiting_payment"
       ? "Pesanan diterima — selesaikan pembayaran & upload bukti di halaman Lacak."
       : "Pesanan diterima!"
-  });
+  };
+  if (idemKey) {
+    idempotencyStore.set(idemKey, { ts: Date.now(), data: responseData });
+  }
+  res.status(201).json(responseData);
 });
 
 app.get("/api/coupons", async (req, res) => {
@@ -872,6 +948,17 @@ app.get("/api/track", async (req, res) => {
 
   if (!order) {
     return res.status(404).json({ error: "Pesanan tidak ditemukan. Periksa nomor pesanan/resi dan email kamu." });
+  }
+
+  const isEmailVerified = !!(rawEmail && order.email && order.email.toLowerCase() === rawEmail.toLowerCase());
+  if (!isEmailVerified) {
+    order.customer_name = maskText(order.customer_name);
+    order.email = maskEmail(order.email);
+    order.address = maskAddress(order.address);
+    order.maps_url = null;
+    order.lat = null;
+    order.lng = null;
+    order.masked = true;
   }
 
   const items = await db.all("SELECT product_id, product_name, price, qty, size, colorway FROM order_items WHERE order_id = ?", [order.id]);
