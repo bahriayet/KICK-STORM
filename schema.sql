@@ -1,6 +1,6 @@
 -- ====================================================================
--- KICKSTORM — Supabase (PostgreSQL) Database Setup Script
--- Copy and paste this script into Supabase SQL Editor and click "Run".
+-- KICKSTORM — Neon (PostgreSQL) Database Setup Script
+-- Project: bold-wind-31928394 (AWS Singapore)
 -- ====================================================================
 
 -- 1. Create Tables
@@ -211,32 +211,3 @@ WHERE NOT EXISTS (SELECT 1 FROM couriers LIMIT 1);
 INSERT INTO couriers (name, tiers, cod_km, phone)
 SELECT 'Express Kilat', '[{"max":5,"cost":25000},{"max":10,"cost":40000},{"max":25,"cost":60000},{"max":9999,"cost":90000}]', 3, ''
 WHERE (SELECT COUNT(*) FROM couriers) = 1;
-
--- 6. Disable Row Level Security (RLS) for backend service or grant all access
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE admin_tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE admin_tokens_revoked ENABLE ROW LEVEL SECURITY;
-ALTER TABLE order_status_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
-ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE restock_waitlist ENABLE ROW LEVEL SECURITY;
-ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE flash_sales ENABLE ROW LEVEL SECURITY;
-ALTER TABLE drops ENABLE ROW LEVEL SECURITY;
-ALTER TABLE couriers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE members ENABLE ROW LEVEL SECURITY;
-
--- Allow full access to anon/authenticated for app operations
-DO $$
-DECLARE
-  t text;
-BEGIN
-  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-  LOOP
-    EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON %I;', t);
-    EXECUTE format('CREATE POLICY "Public Full Access" ON %I FOR ALL USING (true) WITH CHECK (true);', t);
-  END LOOP;
-END $$;

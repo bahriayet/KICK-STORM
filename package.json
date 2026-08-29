@@ -1,15 +1,14 @@
 {
   "name": "tes",
   "version": "1.0.0",
-  "description": "KICKSTORM landing page — Express + SQLite full stack",
+  "description": "KICKSTORM — Express + Neon PostgreSQL full stack",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node test.js",
     "backup": "node backup.js",
-    "purge": "node purge.js",
-    "turso:init": "node turso-init.js"
+    "purge": "node purge.js"
   },
   "keywords": [],
   "author": "",
@@ -18,8 +17,6 @@
   "dependencies": {
     "@libsql/client": "^0.17.4",
     "@neondatabase/serverless": "^1.1.0",
-    "@supabase/supabase-js": "^2.112.3",
-    "better-sqlite3": "^13.0.3",
     "compression": "^1.8.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
