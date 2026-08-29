@@ -1149,3 +1149,244 @@ html, body {
     flex-shrink: 0;
   }
 }
+
+/* ==========================================================================
+   ADMIN LEAFLET RADAR MAP STYLING (ZERO API KEY, DARK MODE)
+   ========================================================================== */
+.admin-radar-map, #store-map, #location-map, #courier-loc-map {
+  background: #121214 !important;
+}
+.admin-radar-map .leaflet-tile, #store-map .leaflet-tile, #location-map .leaflet-tile, #courier-loc-map .leaflet-tile {
+  filter: brightness(0.78) invert(1) contrast(2.8) hue-rotate(200deg) saturate(0.35) !important;
+}
+
+/* Store Marker */
+.pin-admin-store {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #0A0A0C;
+  color: #D6FF3F;
+  border: 2px solid #D6FF3F;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 0 16px rgba(214, 255, 63, 0.6), 0 4px 12px rgba(0, 0, 0, 0.8);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  animation: storeAura 2s infinite alternate ease-in-out;
+}
+@keyframes storeAura {
+  0% { box-shadow: 0 0 8px rgba(214, 255, 63, 0.4); }
+  100% { box-shadow: 0 0 20px rgba(214, 255, 63, 0.9), 0 0 35px rgba(214, 255, 63, 0.3); }
+}
+
+/* Leaflet divIcon reset */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Order Pins by Status */
+.pin-admin-order {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #0A0A0C;
+  font-weight: 800;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2.5px solid #0A0A0C;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s ease;
+  user-select: none;
+}
+.pin-admin-order:hover {
+  transform: translate(-50%, -50%) scale(1.3);
+  z-index: 9999 !important;
+}
+
+.pin-status-pending, .pin-status-awaiting_payment {
+  background: #FFAA00 !important;
+  color: #0A0A0C !important;
+  box-shadow: 0 0 16px rgba(255, 170, 0, 0.9), 0 0 0 2px #0A0A0C;
+  animation: pinPulseAmber 2.2s infinite ease-in-out;
+}
+.pin-status-paid {
+  background: #D6FF3F !important;
+  color: #0A0A0C !important;
+  box-shadow: 0 0 18px rgba(214, 255, 63, 1), 0 0 0 2px #0A0A0C;
+  animation: pinPulseVolt 2s infinite ease-in-out;
+}
+.pin-status-shipped {
+  background: #38BDF8 !important;
+  color: #0A0A0C !important;
+  box-shadow: 0 0 18px rgba(56, 189, 248, 1), 0 0 0 2px #0A0A0C;
+  animation: pinPulseCyan 2s infinite ease-in-out;
+}
+.pin-status-delivered {
+  background: #54D98C !important;
+  color: #0A0A0C !important;
+  box-shadow: 0 0 14px rgba(84, 217, 140, 0.8), 0 0 0 2px #0A0A0C;
+}
+.pin-status-cancelled {
+  background: #FF5A4E !important;
+  color: #FFF !important;
+  box-shadow: 0 0 12px rgba(255, 90, 78, 0.8), 0 0 0 2px #0A0A0C;
+}
+
+@keyframes pinPulseVolt {
+  0% { box-shadow: 0 0 8px rgba(214, 255, 63, 0.5), 0 0 0 2px #0A0A0C; }
+  50% { box-shadow: 0 0 22px rgba(214, 255, 63, 1), 0 0 0 3px #D6FF3F; }
+  100% { box-shadow: 0 0 8px rgba(214, 255, 63, 0.5), 0 0 0 2px #0A0A0C; }
+}
+@keyframes pinPulseCyan {
+  0% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.5), 0 0 0 2px #0A0A0C; }
+  50% { box-shadow: 0 0 22px rgba(56, 189, 248, 1), 0 0 0 3px #38BDF8; }
+  100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.5), 0 0 0 2px #0A0A0C; }
+}
+@keyframes pinPulseAmber {
+  0% { box-shadow: 0 0 8px rgba(255, 170, 0, 0.5), 0 0 0 2px #0A0A0C; }
+  50% { box-shadow: 0 0 20px rgba(255, 170, 0, 1), 0 0 0 3px #FFAA00; }
+  100% { box-shadow: 0 0 8px rgba(255, 170, 0, 0.5), 0 0 0 2px #0A0A0C; }
+}
+
+/* Quick Order Cards Below Map */
+.map-order-card {
+  background: var(--surface-2);
+  border: 1px solid var(--stroke-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.map-order-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--volt);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.map-order-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.map-order-card.status-border-pending::before, .map-order-card.status-border-awaiting_payment::before { background: #FFAA00; }
+.map-order-card.status-border-paid::before { background: #D6FF3F; }
+.map-order-card.status-border-shipped::before { background: #38BDF8; }
+.map-order-card.status-border-delivered::before { background: #54D98C; }
+.map-order-card.status-border-cancelled::before { background: #FF5A4E; }
+
+.moc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.moc-id {
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+.moc-name {
+  font-size: 0.8rem;
+  color: var(--text);
+  font-weight: 500;
+}
+.moc-addr {
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.moc-bot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 0.76rem;
+}
+
+
+/* Leaflet Custom Dark Theme Popup */
+.leaflet-popup-content-wrapper {
+  background: #151518 !important;
+  color: #F5F5F2 !important;
+  border: 1px solid var(--stroke-2) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85) !important;
+  padding: 4px !important;
+}
+.leaflet-popup-tip {
+  background: #151518 !important;
+  border: 1px solid var(--stroke-2) !important;
+}
+.admin-map-popup {
+  min-width: 220px;
+  max-width: 280px;
+  line-height: 1.4;
+  font-family: 'Space Grotesk', sans-serif;
+}
+.amp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.amp-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+.amp-addr {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+.amp-mid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--stroke-2);
+}
+.amp-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.amp-btn {
+  display: block;
+  text-align: center;
+  font-size: 0.76rem !important;
+  padding: 6px 10px !important;
+}
+
+/* Legend items */
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}

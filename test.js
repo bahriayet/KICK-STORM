@@ -241,6 +241,29 @@ async function test(name, fn) {
       .expect(400);
   });
 
+  await test("DELETE /api/admin/orders/:id -> 200 + hapus pesanan + restock", async () => {
+    const o = await request(app).post("/api/orders").send({
+      name: "Mau Dihapus", email: "del@kickstorm.id", address: "Jkt",
+      items: [{ id: 1, qty: 2 }]
+    }).expect(201);
+    await request(app).delete(`/api/admin/orders/${o.body.orderId}`).expect(401);
+    const del = await request(app)
+      .delete(`/api/admin/orders/${o.body.orderId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    assert.strictEqual(del.body.ok, true);
+    await request(app).get(`/api/track?orderId=${o.body.orderId}&email=del@kickstorm.id`).expect(404);
+  });
+
+  await test("POST /api/orders/:id/cancel -> 200 batalkan pesanan pending", async () => {
+    const o = await request(app).post("/api/orders").send({
+      name: "Mau Batal", email: "batal@kickstorm.id", address: "Jkt",
+      items: [{ id: 1, qty: 1 }]
+    }).expect(201);
+    const c = await request(app).post(`/api/orders/${o.body.orderId}/cancel`).expect(200);
+    assert.strictEqual(c.body.status, "cancelled");
+  });
+
   await test("POST /api/products create -> 201", async () => {
     const res = await request(app)
       .post("/api/products")
@@ -670,12 +693,14 @@ async function test(name, fn) {
     assert.strictEqual(o.lng, 106.82);
   });
 
-  await test("ongkir: di luar radius kirim -> 400", async () => {
-    await request(app).post("/api/orders").send({
+  await test("ongkir: di luar radius kirim lokal -> diterima dengan tarif ekspedisi luar kota (50rb)", async () => {
+    const res = await request(app).post("/api/orders").send({
       name: "Jauh", email: "jauh@kickstorm.id", address: "Bandung",
       lat: -6.9175, lng: 107.6191,
       items: [{ id: 1, qty: 1 }]
-    }).expect(400);
+    }).expect(201);
+    assert.strictEqual(res.body.shipping, 50000);
+    assert.ok(res.body.distanceKm > 25);
   });
 
   await test("ongkir: gratis mulai 1.5jt -> 0", async () => {

@@ -19,7 +19,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A0A0A'/%3E%3Cpath d='M6 10 L14 22 L26 8' stroke='%23D6FF3F' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="dns-prefetch" href="https://maps.googleapis.com">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="preload" href="/css/style.css?v=2026081520" as="style">
 <link rel="preload" href="/vendor/gsap.min.js" as="script">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -339,24 +339,41 @@
     <form class="checkout-form" id="checkout-form">
       <input class="field" type="text" id="order-name" required placeholder="Nama lengkap" autocomplete="name">
       <input class="field" type="email" id="order-email" required placeholder="Email" autocomplete="email">
-      <div class="map-picker" id="map-picker" hidden>
-        <input class="field" type="text" id="order-address-search" placeholder="Cari alamat, lalu geser pin untuk tepatkan..." autocomplete="off">
-        <div class="map-canvas" id="order-map"></div>
-        <p class="form-msg" id="map-hint" aria-live="polite"></p>
-      </div>
-      <textarea class="field" id="order-address" required rows="2" placeholder="Alamat lengkap (nama jalan, no. rumah, patokan pagar)" autocomplete="street-address"></textarea>
-      <div class="maps-input-wrap">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <label for="order-maps-url" style="font-size:.76rem;font-weight:600;color:var(--muted)">🔗 Link Google Maps / Titik Rumah:</label>
-          <button class="btn-text-help" id="maps-guide-open" type="button" style="background:none;border:none;color:var(--volt);font-size:.75rem;cursor:pointer;text-decoration:underline">💡 Cara Salin Link</button>
-        </div>
-        <div style="display:flex;gap:6px">
-          <input class="field" type="url" id="order-maps-url" placeholder="Paste link https://maps.app.goo.gl/... (Opsional)" autocomplete="off" style="flex:1">
-          <button class="btn btn-ghost btn-sm" id="btn-get-gps" type="button" title="Gunakan GPS HP saat ini" style="padding:0 12px;font-size:.8rem;white-space:nowrap;display:flex;align-items:center;gap:4px">
-            <span>📍 GPS Saya</span>
+      
+      <!-- Leaflet Interactive Pinpoint Map -->
+      <div class="map-picker" id="map-picker">
+        <div class="map-picker-head">
+          <label style="font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:6px;margin:0">
+            <span>📍 Titik Lokasi Rumah (Pinpoint)</span>
+          </label>
+          <button class="btn btn-ghost btn-sm" id="btn-get-gps" type="button" title="Gunakan GPS HP saat ini" style="padding:6px 12px;font-size:.78rem;display:flex;align-items:center;gap:6px;border-color:rgba(214,255,63,0.3)">
+            <span class="live-pulse" style="background:var(--volt);width:7px;height:7px"></span>
+            <span>Gunakan Lokasi Saya</span>
           </button>
         </div>
-        <p class="form-msg" id="gps-msg" style="font-size:.75rem;margin-top:4px" aria-live="polite"></p>
+        
+        <div class="map-search-row" style="display:flex;gap:6px;margin-bottom:6px">
+          <input class="field" type="text" id="order-address-search" placeholder="Cari nama jalan / area / patokan..." autocomplete="off" style="font-size:.84rem;padding:9px 12px;flex:1">
+          <button class="btn btn-ghost btn-sm" id="btn-search-loc" type="button" style="padding:0 14px;font-size:.82rem;white-space:nowrap">Cari</button>
+        </div>
+
+        <div class="map-canvas" id="order-map" style="width:100%;height:210px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--stroke-2);background:#121214;position:relative"></div>
+        
+        <div class="map-coord-pill" style="display:flex;justify-content:space-between;align-items:center;font-size:.74rem;color:var(--muted);margin-top:4px">
+          <span id="map-coord-text">💡 Geser pin untuk tepatkan titik rumah</span>
+          <span id="map-dist-text" style="color:var(--volt);font-weight:700"></span>
+        </div>
+        <p class="form-msg" id="gps-msg" aria-live="polite" style="font-size:.76rem;margin-top:2px;min-height:auto"></p>
+      </div>
+
+      <textarea class="field" id="order-address" required rows="2" placeholder="Alamat lengkap (nama jalan, no. rumah, patokan pagar/warna rumah)" autocomplete="street-address"></textarea>
+      
+      <div class="maps-input-wrap">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label for="order-maps-url" style="font-size:.76rem;font-weight:600;color:var(--muted)">🔗 Link Google Maps (Opsional / Otomatis):</label>
+          <button class="btn-text-help" id="maps-guide-open" type="button" style="background:none;border:none;color:var(--volt);font-size:.75rem;cursor:pointer;text-decoration:underline">💡 Panduan</button>
+        </div>
+        <input class="field" type="url" id="order-maps-url" placeholder="https://www.google.com/maps?q=..." autocomplete="off">
       </div>
       <input type="hidden" id="order-lat">
       <input type="hidden" id="order-lng">
@@ -541,6 +558,7 @@
   </button>
 </nav>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/vendor/gsap.min.js" defer></script>
 <script src="/vendor/ScrollTrigger.min.js" defer></script>
 <script type="module" src="/js/forge.js?v=2026081520" defer></script>

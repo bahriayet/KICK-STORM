@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="/css/courier.css">
 </head>
 <body>
@@ -19,6 +20,9 @@
     KICKSTORM <span class="badge-courier">Kurir</span>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn-icon" id="btn-sim-toggle" type="button" title="Simulasi gerakan kurir untuk pengujian" style="background:rgba(214,255,63,0.12);border-color:var(--volt);color:var(--volt)">
+      🧪 Simulasi GPS
+    </button>
     <button class="btn-icon" id="btn-refresh" type="button" title="Muat ulang data pesanan">
       ↻ Refresh
     </button>
@@ -32,7 +36,7 @@
     <div class="gps-top">
       <div class="gps-title">
         <span class="gps-pulse" id="gps-pulse"></span>
-        <span>Live GPS Kurir</span>
+        <span>Live GPS Kurir (Neon.tech Realtime)</span>
       </div>
       <label class="switch-wrap" title="Aktifkan pengiriman posisi GPS otomatis">
         <input type="checkbox" id="gps-toggle">
@@ -40,7 +44,7 @@
       </label>
     </div>
     <p class="gps-status" id="gps-status-text">
-      Nyalakan toggle di atas saat kamu mulai berangkat mengantar agar Admin &amp; Pelanggan bisa memantau pergerakanmu secara live.
+      Nyalakan toggle di atas saat kamu mulai berangkat mengantar agar Pelanggan &amp; Admin bisa memantau pergerakanmu secara live di peta Leaflet.
     </p>
 
     <!-- Opsi Berbagi Lokasi Google Maps -->
@@ -49,7 +53,7 @@
       <button class="btn-icon" id="btn-save-share-url" type="button" style="background:var(--surface-3)">Simpan</button>
     </div>
     <p style="font-size:0.72rem;color:var(--muted);margin-top:6px">
-      💡 <b>Tips Google Maps:</b> Di aplikasi Google Maps ➡️ Profil ➡️ <i>Berbagi Lokasi</i> ➡️ Salin link lalu tempel di sini.
+      💡 <b>Tips Navigasi:</b> Klik tombol <b>"🚀 Buka di Google Maps"</b> pada kartu pesanan untuk membuka navigasi suara belokan demi belokan di HP kurir.
     </p>
   </section>
 
@@ -78,6 +82,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/js/courier.js"></script>
 </body>
 </html>

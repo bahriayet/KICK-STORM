@@ -199,6 +199,7 @@ INSERT INTO settings (key, value) VALUES
   ('shipping_tiers', '[{"max":5,"cost":15000},{"max":10,"cost":25000},{"max":25,"cost":40000},{"max":9999,"cost":60000}]'),
   ('free_shipping_min', '0'),
   ('max_shipping_km', '25'),
+  ('out_of_area_cost', '50000'),
   ('wa_number', ''),
   ('payment_flow', '0')
 ON CONFLICT (key) DO NOTHING;

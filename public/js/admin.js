@@ -244,6 +244,7 @@
           resiBadge +
           payProofHighlight +
           '<button class="btn btn-ghost btn-sm od-open-btn" type="button" data-od-id="' + o.id + '">⚙️ Kelola &amp; Detail &rarr;</button>' +
+          '<button class="btn btn-danger btn-sm od-del-btn" type="button" data-del-id="' + o.id + '" title="Hapus pesanan #' + o.id + '">🗑️ Hapus</button>' +
           "</div>";
 
         return '<tr class="desktop-order-row" data-od-id="' + o.id + '">' +
@@ -283,7 +284,10 @@
                   '<span class="oc-name">' + escapeHtml(o.customer_name) + '</span>' +
                   '<span class="oc-items-count">' + escapeHtml(itemSummary) + ' • <strong class="oc-price">' + rupiah(o.total) + '</strong></span>' +
                 '</div>' +
-                '<span class="oc-action-pill">Kelola &rarr;</span>' +
+                '<div style="display:flex;gap:6px;align-items:center">' +
+                  '<span class="oc-action-pill">Kelola &rarr;</span>' +
+                  '<button class="btn btn-danger btn-sm" type="button" data-del-id="' + o.id + '" style="padding:4px 8px;font-size:0.72rem" title="Hapus pesanan #' + o.id + '">🗑️</button>' +
+                '</div>' +
               '</div>' +
             '</div>';
           }).join("");
@@ -569,8 +573,31 @@
     });
   });
 
+  function deleteOrder(id, cb) {
+    if (!confirm("Hapus pesanan #" + id + "?\n\nData pesanan akan dihapus permanen dari sistem dan stok produk akan dikembalikan.")) return;
+    api("/api/admin/orders/" + id, { method: "DELETE" }).then(function (res) {
+      if (res.status === 401) return logout();
+      if (res.ok) {
+        toast("✓ Pesanan #" + id + " berhasil dihapus.");
+        if (typeof cb === "function") cb();
+        renderOrders();
+        renderProducts();
+        renderStats();
+      } else {
+        toast(res.data.error || "Gagal menghapus pesanan.", true);
+      }
+    }).catch(function () {
+      toast("Gagal terhubung ke server.", true);
+    });
+  }
+
   /* orders desktop: klik baris / kelola → buka modal detail pesanan */
   document.getElementById("orders-body").addEventListener("click", function (e) {
+    var del = e.target.closest("[data-del-id]");
+    if (del) {
+      e.stopPropagation();
+      return deleteOrder(Number(del.dataset.delId));
+    }
     var email = e.target.closest("[data-email]");
     if (email) {
       e.stopPropagation();
@@ -766,12 +793,32 @@
         openPayProof(id);
       }
     });
+
+    var odDelBtn = $("od-delete-btn");
+    if (odDelBtn) {
+      odDelBtn.addEventListener("click", function () {
+        if (activeOdOrder) {
+          var id = activeOdOrder.id;
+          deleteOrder(id, function () {
+            closeOrderDetailModal();
+          });
+        }
+      });
+    }
   }
+
+  window.openOrderDetailModal = openOrderDetailModal;
+  window.deleteOrder = deleteOrder;
 
   // Klik card pesanan di mobile list
   var mWrapEl = $("orders-mobile-wrap");
   if (mWrapEl) {
     mWrapEl.addEventListener("click", function (e) {
+      var del = e.target.closest("[data-del-id]");
+      if (del) {
+        e.stopPropagation();
+        return deleteOrder(Number(del.dataset.delId));
+      }
       var card = e.target.closest("[data-od-id]");
       if (card) {
         openOrderDetailModal(Number(card.dataset.odId));
@@ -779,17 +826,15 @@
     });
   }
 
-  /* lokasi pesanan: peta Google Maps */
+  /* lokasi pesanan: peta Leaflet */
   var locMap = null;
   var locMarker = null;
   var locOverlay = $("location-overlay");
-  var mapsLoaded = false;
-  var mapsLoading = false;
 
   function showLocationMap(o) {
-    if (!locOverlay) return;
+    if (!locOverlay || !window.L) return;
     $("location-address").textContent = o.address || "-";
-    $("location-coords").textContent = (o.lat && o.lng) ? "Koordinat: " + o.lat.toFixed(6) + ", " + o.lng.toFixed(6) : "";
+    $("location-coords").textContent = (o.lat && o.lng) ? "Koordinat: " + Number(o.lat).toFixed(6) + ", " + Number(o.lng).toFixed(6) : "";
     var routeBtn = $("location-route");
     if (storeCfg && o.lat && o.lng) {
       routeBtn.href = "https://www.google.com/maps/dir/?api=1&origin=" + storeCfg.lat + "," + storeCfg.lng + "&destination=" + o.lat + "," + o.lng + "&travelmode=driving";
@@ -798,49 +843,35 @@
       routeBtn.hidden = true;
     }
     locOverlay.classList.add("open");
-    if (!window.google || !google.maps) return;
+
     var lat = Number(o.lat), lng = Number(o.lng);
+    var pos = [lat, lng];
+    var el = $("location-map");
+
     if (!locMap) {
-      locMap = new google.maps.Map($("location-map"), {
-        center: { lat: lat, lng: lng }, zoom: 16,
-        mapTypeControl: false, fullscreenControl: false, streetViewControl: false
+      locMap = L.map(el, { zoomControl: true }).setView(pos, 15);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(locMap);
+      var buyerIcon = L.divIcon({
+        className: "",
+        html: '<div style="width:32px;height:32px;border-radius:50%;background:#38BDF8;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(56,189,248,0.6),0 0 0 2px #0A0A0C;transform:translate(-50%,-50%)">🏠</div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
       });
-      locMarker = new google.maps.Marker({ map: locMap });
+      locMarker = L.marker(pos, { icon: buyerIcon }).addTo(locMap);
+    } else {
+      locMarker.setLatLng(pos);
+      locMap.setView(pos, 15);
     }
-    var pos = { lat: lat, lng: lng };
-    locMarker.setPosition(pos);
-    locMap.setCenter(pos);
-    locMap.setZoom(16);
+    setTimeout(function () { locMap.invalidateSize(); }, 150);
   }
 
   function openLocation(id) {
     var o = allOrders.filter(function (x) { return x.id === id; })[0];
     if (!o || !o.lat || !o.lng) return;
-    if (window.google && google.maps) return showLocationMap(o);
-    if (mapsLoaded) return showLocationMap(o);
-    if (mapsLoading) return;
-    mapsLoading = true;
-    fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
-      if (!cfg.googleMapsApiKey) {
-        mapsLoading = false;
-        toast("GOOGLE_MAPS_API_KEY belum diatur di .env", true);
-        return;
-      }
-      window.__kickstormAdminMapsReady = function () {
-        delete window.__kickstormAdminMapsReady;
-        mapsLoaded = true;
-        mapsLoading = false;
-        showLocationMap(o);
-      };
-      var s = document.createElement("script");
-      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(cfg.googleMapsApiKey) + "&callback=__kickstormAdminMapsReady";
-      s.async = true;
-      s.defer = true;
-      document.head.appendChild(s);
-    }).catch(function () {
-      mapsLoading = false;
-      toast("Gagal memuat peta.", true);
-    });
+    showLocationMap(o);
   }
 
   if (locOverlay) {
@@ -896,61 +927,51 @@
     payOverlay.addEventListener("click", function (e) { if (e.target === payOverlay) closePayProof(); });
   }
 
-  /* ---- Posisi kurir (drag pin) ---- */
+  /* ---- Posisi kurir (drag pin Leaflet) ---- */
   var clMap = null;
   var clMarker = null;
   var clOverlay = $("courier-loc-overlay");
   var clOrderId = null;
-  var clDragging = false;
 
   function openCourierLoc(id) {
     var o = allOrders.filter(function (x) { return x.id === id; })[0];
     if (!o) return;
     clOrderId = id;
     $("cl-order-tag").textContent = "#" + id + " \u2022 " + escapeHtml(o.customer_name);
-    var start = { lat: o.courier_lat ? Number(o.courier_lat) : Number(o.lat), lng: o.courier_lng ? Number(o.courier_lng) : Number(o.lng) };
-    if (!start.lat || !start.lng) return toast("Pesanan ini belum punya koordinat tujuan.", true);
+    var start = [o.courier_lat ? Number(o.courier_lat) : Number(o.lat), o.courier_lng ? Number(o.courier_lng) : Number(o.lng)];
+    if (!start[0] || !start[1]) return toast("Pesanan ini belum punya koordinat tujuan.", true);
     clOverlay.classList.add("open");
-    $("cl-coords").textContent = start.lat.toFixed(6) + ", " + start.lng.toFixed(6);
-    if (window.google && google.maps) return renderCourierLocMap(start);
-    fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
-      if (!cfg.googleMapsApiKey) {
-        toast("GOOGLE_MAPS_API_KEY belum diatur di .env", true);
-        clOverlay.classList.remove("open");
-        return;
-      }
-      window.__kickstormClocReady = function () {
-        delete window.__kickstormClocReady;
-        renderCourierLocMap(start);
-      };
-      var s = document.createElement("script");
-      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(cfg.googleMapsApiKey) + "&callback=__kickstormClocReady";
-      s.async = true;
-      s.defer = true;
-      document.head.appendChild(s);
-    }).catch(function () { clOverlay.classList.remove("open"); });
-  }
+    $("cl-coords").textContent = start[0].toFixed(6) + ", " + start[1].toFixed(6);
 
-  function renderCourierLocMap(start) {
     var el = $("courier-loc-map");
-    if (!clMap) {
-      clMap = new google.maps.Map(el, {
-        center: start, zoom: 14,
-        mapTypeControl: false, fullscreenControl: false, streetViewControl: false
+    if (!clMap && window.L) {
+      clMap = L.map(el, { zoomControl: true }).setView(start, 15);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(clMap);
+      var courierIcon = L.divIcon({
+        className: "",
+        html: '<div style="width:34px;height:34px;border-radius:50%;background:#D6FF3F;color:#0A0A0C;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(214,255,63,0.8),0 0 0 2px #0A0A0C;transform:translate(-50%,-50%);cursor:grab">🛵</div>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
       });
-      clMarker = new google.maps.Marker({
-        map: clMap, position: start, draggable: true,
-        title: "Geser ke posisi kurir",
-        label: { text: "\uD83D\uDCE6", fontSize: "18px" }
+      clMarker = L.marker(start, { icon: courierIcon, draggable: true }).addTo(clMap);
+
+      clMarker.on("dragend", function (e) {
+        var p = e.target.getLatLng();
+        $("cl-coords").textContent = p.lat.toFixed(6) + ", " + p.lng.toFixed(6);
       });
-      clMarker.addListener("dragend", function () {
-        clDragging = true;
-        $("cl-coords").textContent = clMarker.getPosition().lat().toFixed(6) + ", " + clMarker.getPosition().lng().toFixed(6);
+      clMap.on("click", function (e) {
+        clMarker.setLatLng(e.latlng);
+        clMap.panTo(e.latlng);
+        $("cl-coords").textContent = e.latlng.lat.toFixed(6) + ", " + e.latlng.lng.toFixed(6);
       });
-    } else {
-      clMarker.setPosition(start);
-      clMap.setCenter(start);
+    } else if (clMap) {
+      clMarker.setLatLng(start);
+      clMap.setView(start, 15);
     }
+    setTimeout(function () { if (clMap) clMap.invalidateSize(); }, 150);
   }
 
   if (clOverlay) {
@@ -958,16 +979,16 @@
     $("cl-cancel").addEventListener("click", function () { clOverlay.classList.remove("open"); });
     $("cl-save").addEventListener("click", function () {
       if (!clMarker || !clOrderId) return;
-      var pos = clMarker.getPosition();
+      var pos = clMarker.getLatLng();
       var btn = $("cl-save");
       btn.disabled = true;
       api("/api/admin/orders/" + clOrderId + "/courier-location", {
         method: "PUT",
-        body: JSON.stringify({ lat: pos.lat(), lng: pos.lng() })
+        body: JSON.stringify({ lat: pos.lat, lng: pos.lng })
       }).then(function (res) {
         if (res.status === 401) return logout();
         if (res.ok) {
-          toast("Posisi kurir #" + clOrderId + " diperbarui \u2014 pelanggan bisa melacak.");
+          toast("Posisi kurir #" + clOrderId + " diperbarui \u2014 pelanggan bisa melacak secara live.");
           clOverlay.classList.remove("open");
           renderOrders();
         } else toast(res.data.error || "Gagal simpan posisi.", true);
@@ -1872,6 +1893,7 @@
       $("s-lng").value = s.store_lng || "";
       $("s-free").value = s.free_shipping_min || "0";
       $("s-max").value = s.max_shipping_km || "0";
+      $("s-outofarea").value = s.out_of_area_cost || "50000";
       $("s-wa").value = s.wa_number || "";
       $("s-payflow").checked = s.payment_flow === "1";
       var tiers = [];
@@ -1911,6 +1933,7 @@
       store_lng: Number($("s-lng").value),
       free_shipping_min: Number($("s-free").value) || 0,
       max_shipping_km: Number($("s-max").value) || 0,
+      out_of_area_cost: Number($("s-outofarea").value) || 50000,
       wa_number: $("s-wa").value,
       shipping_tiers: tiers,
       payment_flow: $("s-payflow").checked ? 1 : 0
@@ -1999,343 +2022,282 @@
 
   $("waitlist-refresh").addEventListener("click", renderWaitlist);
 
-  /* ---- Google Maps Platform (GMP MCP Standards) ---- */
-  var gmpApiKey = "";
+  /* ---- Leaflet Admin Radar Command Map (Zero API Key, Dark Mode) ---- */
   var mapAll = null;
-  var mapAllMarkers = [];
+  var mapAllMarkersLayer = null;
   var mapAllStoreMarker = null;
-  var mapAllInfo = null;
-  var mapAllStarted = false;
+  var mapAllOrderMarkers = {};
+  var mapCurrentFilter = "all";
 
-  var storeMap = null;
-  var storeMapMarker = null;
-  var storeMapStarted = false;
-  var storeGeocoder = null;
-
-  function loadGMP(key) {
-    if (window.google && window.google.maps && window.google.maps.importLibrary) return Promise.resolve();
-    return new Promise(function (resolve) {
-      (function (g) {
-        var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
-        b[c] = b[c] || {};
-        var d = b[c].maps = b[c].maps || {}, r = new Set(), e = new URLSearchParams(), u = function () {
-          return h || (h = new Promise(function (f, n) {
-            a = m.createElement("script");
-            e.set("libraries", Array.from(r) + "");
-            for (k in g) e.set(k.replace(/[A-Z]/g, function (t) { return "_" + t[0].toLowerCase(); }), g[k]);
-            e.set("callback", c + ".maps." + q);
-            a.src = "https://maps." + c + "apis.com/maps/api/js?" + e;
-            d[q] = f;
-            a.onerror = function () { h = n(Error(p + " could not load.")); };
-            a.nonce = (m.querySelector("script[nonce]") && m.querySelector("script[nonce]").nonce) || "";
-            m.head.append(a);
-          }));
-        };
-        d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = function (f) {
-          var n = Array.prototype.slice.call(arguments, 1);
-          return r.add(f) && u().then(function () { return d[l].apply(d, [f].concat(n)); });
-        };
-      })({
-        key: key,
-        v: "weekly",
-        internalUsageAttributionIds: "gmp_mcp_codeassist_v0.1_github"
-      });
-      resolve();
-    });
-  }
+  window.flyToOrderPin = function (id) {
+    var o = allOrders.find(function (x) { return x.id === Number(id); });
+    if (o && o.lat && o.lng && mapAll) {
+      mapAll.flyTo([Number(o.lat), Number(o.lng)], 15, { animate: true, duration: 1.0 });
+      var m = mapAllOrderMarkers[id];
+      if (m) {
+        setTimeout(function () { m.openPopup(); }, 1050);
+      }
+    }
+  };
 
   function refreshMap() {
     var panel = $("panel-map");
-    if (!panel || !panel.classList.contains("active") || !mapAll) return;
-    var withLoc = allOrders.filter(function (o) { return o.lat && o.lng; });
-    if (withLoc.length === 0 && (!storeCfg || !storeCfg.lat || !storeCfg.lng)) {
-      $("map-all-hint").textContent = "Belum ada pesanan dengan lokasi peta.";
-      return;
+    if (!panel || !panel.classList.contains("active") || !mapAll || !window.L) return;
+
+    if (!mapAllMarkersLayer) {
+      mapAllMarkersLayer = L.layerGroup().addTo(mapAll);
+    } else {
+      mapAllMarkersLayer.clearLayers();
     }
+    mapAllOrderMarkers = {};
 
-    mapAllMarkers.forEach(function (m) {
-      if (m.setMap) m.setMap(null);
-      else if (m.map !== undefined) m.map = null;
-    });
-    mapAllMarkers = [];
-    if (mapAllStoreMarker) {
-      if (mapAllStoreMarker.setMap) mapAllStoreMarker.setMap(null);
-      else if (mapAllStoreMarker.map !== undefined) mapAllStoreMarker.map = null;
-      mapAllStoreMarker = null;
-    }
+    var bounds = L.latLngBounds([]);
 
-    var bounds = new google.maps.LatLngBounds();
-    var colors = {
-      awaiting_payment: "#f5f5f2",
-      pending: "#ffaa00",
-      paid: "#f5c542",
-      shipped: "#5aa9ff",
-      delivered: "#54d98c",
-      cancelled: "#ff5a4e"
-    };
-
-    if (!mapAllInfo) {
-      mapAllInfo = new google.maps.InfoWindow();
-    }
-
-    // Add Store Marker
+    // Store Hub Marker (🏬 Toko KICKSTORM)
     if (storeCfg && storeCfg.lat && storeCfg.lng) {
-      var storePos = { lat: Number(storeCfg.lat), lng: Number(storeCfg.lng) };
-      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-        var storeEl = document.createElement("div");
-        storeEl.innerHTML = '<div style="background:#D6FF3F;color:#0A0A0C;font-weight:700;font-size:11px;padding:5px 9px;border-radius:20px;border:2px solid #0A0A0C;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:4px">🏬 ' + escapeHtml(storeCfg.name || "Toko KICKSTORM") + '</div>';
-        mapAllStoreMarker = new google.maps.marker.AdvancedMarkerElement({
-          position: storePos,
-          map: mapAll,
-          title: "Toko KICKSTORM",
-          content: storeEl
-        });
-      } else {
-        mapAllStoreMarker = new google.maps.Marker({
-          position: storePos,
-          map: mapAll,
-          title: "Toko KICKSTORM",
-          icon: {
-            path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-            scale: 6,
-            fillColor: "#D6FF3F",
-            fillOpacity: 1,
-            strokeColor: "#0A0A0C",
-            strokeWeight: 2
-          }
-        });
-      }
-      bounds.extend(storePos);
+      var storeLatLng = [Number(storeCfg.lat), Number(storeCfg.lng)];
+      var storeIcon = L.divIcon({
+        className: "leaflet-marker-custom",
+        html: '<div class="pin-admin-store">🏬 ' + escapeHtml(storeCfg.name || "Toko KICKSTORM") + '</div>',
+        iconSize: [140, 30],
+        iconAnchor: [70, 15]
+      });
+      mapAllStoreMarker = L.marker(storeLatLng, { icon: storeIcon, zIndexOffset: 1000 }).addTo(mapAllMarkersLayer);
+      mapAllStoreMarker.bindPopup('<div style="font-family:\'Space Grotesk\',sans-serif;padding:4px"><strong style="color:var(--volt)">🏬 ' + escapeHtml(storeCfg.name || "Toko KICKSTORM Hub") + '</strong><br><span style="font-size:0.76rem;color:var(--muted)">Titik Pusat Pengiriman</span></div>');
+      bounds.extend(storeLatLng);
     }
 
-    // Add Order Markers
-    withLoc.forEach(function (o) {
-      var pos = { lat: Number(o.lat), lng: Number(o.lng) };
-      var marker = null;
-      var statusColor = colors[o.status] || "#9c9c9c";
-      var statusLabel = STATUS_LABELS[o.status] || o.status;
+    var withLoc = allOrders.filter(function (o) { return o.lat && o.lng; });
+    var filtered = withLoc;
+    if (mapCurrentFilter !== "all") {
+      filtered = withLoc.filter(function (o) {
+        if (mapCurrentFilter === "pending") return o.status === "pending" || o.status === "awaiting_payment";
+        return o.status === mapCurrentFilter;
+      });
+    }
 
-      var infoContent = '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:12px;color:#141416;min-width:200px;line-height:1.4">' +
-        '<div style="font-weight:700;font-size:13px;margin-bottom:3px">#' + o.id + " \u2014 " + escapeHtml(o.customer_name) + '</div>' +
-        '<div style="color:#444;margin-bottom:6px;font-size:11px">' + escapeHtml(o.address) + '</div>' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
-        '<span style="background:' + statusColor + ';color:#141416;font-weight:600;font-size:10px;padding:2px 6px;border-radius:4px">' + statusLabel + '</span>' +
-        '<strong style="font-size:12px">' + rupiah(o.total) + '</strong>' +
+    // Update Metrics
+    var activeCount = withLoc.filter(function (o) { return o.status === "paid" || o.status === "shipped"; }).length;
+    var maxDist = 0;
+    if (storeCfg && storeCfg.lat) {
+      withLoc.forEach(function (o) {
+        var d = haversineKm(Number(storeCfg.lat), Number(storeCfg.lng), Number(o.lat), Number(o.lng));
+        if (d > maxDist) maxDist = d;
+      });
+    }
+    if ($("map-order-count-pill")) $("map-order-count-pill").textContent = withLoc.length + " Titik";
+    if ($("mm-total")) $("mm-total").textContent = withLoc.length + " pesanan";
+    if ($("mm-farthest")) $("mm-farthest").textContent = maxDist > 0 ? (Math.round(maxDist) + " km") : "0 km";
+    if ($("mm-active")) $("mm-active").textContent = activeCount + " pesanan";
+
+    filtered.forEach(function (o) {
+      var latLng = [Number(o.lat), Number(o.lng)];
+      var distKm = (storeCfg && storeCfg.lat) ? haversineKm(Number(storeCfg.lat), Number(storeCfg.lng), Number(o.lat), Number(o.lng)) : 0;
+      var statusClass = "pin-status-" + (o.status || "pending");
+
+      var orderIcon = L.divIcon({
+        className: "leaflet-marker-custom",
+        html: '<div class="pin-admin-order ' + statusClass + '" title="Pesanan #' + o.id + ' (' + (STATUS_LABELS[o.status] || o.status) + ')">#' + o.id + '</div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      var marker = L.marker(latLng, { icon: orderIcon }).addTo(mapAllMarkersLayer);
+      mapAllOrderMarkers[o.id] = marker;
+
+      var itemSummary = (o.items && o.items.length > 0)
+        ? (o.items[0].product_name + (o.items.length > 1 ? " (+" + (o.items.length - 1) + ")" : ""))
+        : "1 item";
+
+      var waCourierText = "Halo Kurir KICKSTORM, tugas antar pesanan #" + o.id + ":\n" +
+        "👤 Pelanggan: " + o.customer_name + "\n" +
+        "📍 Alamat: " + o.address + "\n" +
+        "💰 Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
+        "🚀 Navigasi: https://www.google.com/maps/dir/?api=1&destination=" + o.lat + "," + o.lng;
+
+      var popupHtml = '<div class="admin-map-popup">' +
+        '<div class="amp-head">' +
+          '<span class="amp-title">#' + o.id + ' — ' + escapeHtml(o.customer_name) + '</span>' +
+          '<span class="badge-status" style="font-size:0.68rem">' + (STATUS_LABELS[o.status] || o.status) + '</span>' +
         '</div>' +
-        '<a href="https://www.google.com/maps/dir/?api=1&destination=' + o.lat + ',' + o.lng + '&travelmode=driving" target="_blank" rel="noopener" style="display:block;text-align:center;background:#141416;color:#D6FF3F;padding:6px 10px;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px">📍 Buka Rute Google Maps ↗</a>' +
-        '</div>';
+        '<div class="amp-addr">📍 ' + escapeHtml(o.address || "-") + (distKm > 0 ? ' <strong style="color:var(--volt)">(' + Math.round(distKm) + ' km)</strong>' : '') + '</div>' +
+        '<div class="amp-mid">' +
+          '<span class="muted" style="font-size:0.75rem">' + escapeHtml(itemSummary) + '</span>' +
+          '<strong class="price" style="color:var(--volt)">' + rupiah(o.total) + '</strong>' +
+        '</div>' +
+        '<div class="amp-actions">' +
+          '<button class="btn btn-primary btn-sm amp-btn" type="button" onclick="openOrderDetailModal(' + o.id + ')">⚙️ Kelola &amp; Detail</button>' +
+          '<a class="btn btn-ghost btn-sm amp-btn" href="https://www.google.com/maps/dir/?api=1&destination=' + o.lat + ',' + o.lng + '&travelmode=driving" target="_blank" rel="noopener">🚀 Rute Google Maps ↗</a>' +
+          '<a class="btn btn-ghost btn-sm amp-btn" href="https://wa.me/?text=' + encodeURIComponent(waCourierText) + '" target="_blank" rel="noopener" style="color:#25d366">📲 Hubungi WA Kurir</a>' +
+        '</div>' +
+      '</div>';
 
-      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-        var pin = document.createElement("div");
-        pin.style.width = "14px";
-        pin.style.height = "14px";
-        pin.style.borderRadius = "50%";
-        pin.style.backgroundColor = statusColor;
-        pin.style.border = "2px solid #141416";
-        pin.style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
-        marker = new google.maps.marker.AdvancedMarkerElement({
-          position: pos,
-          map: mapAll,
-          title: "#" + o.id + " " + o.customer_name,
-          content: pin
-        });
-        marker.addListener("click", function () {
-          mapAllInfo.setContent(infoContent);
-          mapAllInfo.open({ map: mapAll, anchor: marker });
-        });
-      } else {
-        marker = new google.maps.Marker({
-          position: pos,
-          map: mapAll,
-          title: "#" + o.id + " " + o.customer_name,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: statusColor,
-            fillOpacity: 0.95,
-            strokeColor: "#141416",
-            strokeWeight: 2
-          }
-        });
-        marker.addListener("click", function () {
-          mapAllInfo.setContent(infoContent);
-          mapAllInfo.open(mapAll, marker);
-        });
-      }
-
-      mapAllMarkers.push(marker);
-      bounds.extend(pos);
+      marker.bindPopup(popupHtml, { maxWidth: 300 });
+      bounds.extend(latLng);
     });
 
-    if (withLoc.length > 0 || (storeCfg && storeCfg.lat)) {
-      mapAll.fitBounds(bounds);
-      google.maps.event.addListenerOnce(mapAll, "idle", function () {
-        if (mapAll.getZoom() > 14) mapAll.setZoom(14);
-      });
-    }
-
-    $("map-all-hint").textContent = withLoc.length + " pesanan aktif terpasang di peta radar.";
-    $("map-legend").hidden = false;
-  }
-
-  async function ensureMapAll() {
-    var el = $("map-all");
-    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
-    if (mapAllStarted) {
-      refreshMap();
-      return;
-    }
-    mapAllStarted = true;
-
-    try {
-      var cfgRes = await fetch("/api/config").then(function (r) { return r.json(); });
-      gmpApiKey = cfgRes.googleMapsApiKey || "";
-      if (!gmpApiKey) {
-        $("map-all-hint").textContent = "Atur GOOGLE_MAPS_API_KEY di file .env untuk mengaktifkan peta interaktif.";
-        return;
-      }
-
-      await loadGMP(gmpApiKey);
-      var mapsLib = await google.maps.importLibrary("maps");
-      await google.maps.importLibrary("marker").catch(function () { return null; });
-
-      var centerPos = storeCfg && storeCfg.lat ? { lat: Number(storeCfg.lat), lng: Number(storeCfg.lng) } : { lat: -6.2, lng: 106.816666 };
-
-      mapAll = new mapsLib.Map(el, {
-        center: centerPos,
-        zoom: 11,
-        mapId: "DEMO_MAP_ID",
-        mapTypeControl: false,
-        fullscreenControl: true,
-        streetViewControl: false
-      });
-
-      refreshMap();
-    } catch (err) {
-      console.warn("Error loading admin map:", err);
-      mapAllStarted = false;
-    }
-  }
-
-  /* ---- Store Map Picker di Pengaturan Toko ---- */
-  async function ensureStoreMap() {
-    var el = $("store-map");
-    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
-    if (storeMapStarted) {
-      updateStoreMapMarker();
-      return;
-    }
-    storeMapStarted = true;
-
-    try {
-      var cfgRes = await fetch("/api/config").then(function (r) { return r.json(); });
-      gmpApiKey = cfgRes.googleMapsApiKey || "";
-      if (!gmpApiKey) {
-        $("store-map-hint").textContent = "Atur GOOGLE_MAPS_API_KEY di file .env untuk memilih lokasi toko langsung dari peta.";
-        return;
-      }
-
-      await loadGMP(gmpApiKey);
-      var mapsLib = await google.maps.importLibrary("maps");
-      await google.maps.importLibrary("marker").catch(function () { return null; });
-      var geocodingLib = await google.maps.importLibrary("geocoding").catch(function () { return null; });
-
-      if (geocodingLib && geocodingLib.Geocoder) {
-        storeGeocoder = new geocodingLib.Geocoder();
-      } else if (google.maps.Geocoder) {
-        storeGeocoder = new google.maps.Geocoder();
-      }
-
-      var curLat = Number($("s-lat").value) || -6.2087634;
-      var curLng = Number($("s-lng").value) || 106.845599;
-      var centerPos = { lat: curLat, lng: curLng };
-
-      storeMap = new mapsLib.Map(el, {
-        center: centerPos,
-        zoom: 14,
-        mapId: "DEMO_MAP_ID",
-        mapTypeControl: false,
-        fullscreenControl: false,
-        streetViewControl: false,
-        gestureHandling: "greedy"
-      });
-
-      function onStorePosChanged(lat, lng) {
-        $("s-lat").value = Number(lat).toFixed(6);
-        $("s-lng").value = Number(lng).toFixed(6);
-        if (storeGeocoder) {
-          storeGeocoder.geocode({ location: { lat: Number(lat), lng: Number(lng) } }, function (results, status) {
-            if (status === "OK" && results && results[0]) {
-              $("store-map-hint").textContent = "\u2713 Lokasi Toko: " + results[0].formatted_address;
-            } else {
-              $("store-map-hint").textContent = "\u2713 Koordinat: " + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5);
-            }
-          });
-        } else {
-          $("store-map-hint").textContent = "\u2713 Koordinat: " + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5);
-        }
-      }
-
-      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-        storeMapMarker = new google.maps.marker.AdvancedMarkerElement({
-          position: centerPos,
-          map: storeMap,
-          gmpDraggable: true,
-          title: "Geser pin untuk menentukan titik lokasi toko"
-        });
-        storeMapMarker.addListener("dragend", function () {
-          var p = storeMapMarker.position;
-          var rlat = typeof p.lat === "function" ? p.lat() : p.lat;
-          var rlng = typeof p.lng === "function" ? p.lng() : p.lng;
-          onStorePosChanged(rlat, rlng);
-        });
+    // Render quick cards below map
+    var cardsWrap = $("map-orders-list");
+    if (cardsWrap) {
+      if (filtered.length === 0) {
+        cardsWrap.innerHTML = '<div class="muted" style="grid-column:1/-1;font-size:0.82rem;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm)">Tidak ada pesanan dengan status yang dipilih di peta.</div>';
       } else {
-        storeMapMarker = new google.maps.Marker({
-          position: centerPos,
-          map: storeMap,
-          draggable: true,
-          title: "Geser pin untuk menentukan titik lokasi toko"
-        });
-        storeMapMarker.addListener("dragend", function () {
-          var p = storeMapMarker.getPosition();
-          onStorePosChanged(p.lat(), p.lng());
-        });
+        cardsWrap.innerHTML = filtered.map(function (o) {
+          var distKm = (storeCfg && storeCfg.lat) ? haversineKm(Number(storeCfg.lat), Number(storeCfg.lng), Number(o.lat), Number(o.lng)) : 0;
+          return '<div class="map-order-card status-border-' + (o.status || "pending") + '" onclick="flyToOrderPin(' + o.id + ')">' +
+            '<div class="moc-top">' +
+              '<span class="moc-id">#' + o.id + ' ' + escapeHtml(o.customer_name) + '</span>' +
+              '<span class="badge-status" style="font-size:0.68rem">' + (STATUS_LABELS[o.status] || o.status) + '</span>' +
+            '</div>' +
+            '<div class="moc-addr">📍 ' + escapeHtml(o.address || "-") + '</div>' +
+            '<div class="moc-bot">' +
+              '<strong style="color:var(--volt)">' + rupiah(o.total) + '</strong>' +
+              '<span class="muted">' + (distKm > 0 ? (Math.round(distKm) + ' km') : '') + ' &bull; 🎯 Terbang ke Pin</span>' +
+            '</div>' +
+          '</div>';
+        }).join("");
+      }
+    }
+
+    if (bounds.isValid()) {
+      mapAll.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+    }
+  }
+
+  function ensureMapAll() {
+    var el = $("map-all");
+    if (!el || !window.L) return;
+
+    function initOrRefresh() {
+      if (!mapAll) {
+        var centerPos = storeCfg && storeCfg.lat ? [Number(storeCfg.lat), Number(storeCfg.lng)] : [-6.2087634, 106.845599];
+        mapAll = L.map(el, { zoomControl: true }).setView(centerPos, 11);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(mapAll);
+
+        // Event listeners
+        var filterSel = $("map-status-filter");
+        if (filterSel) {
+          filterSel.addEventListener("change", function () {
+            mapCurrentFilter = this.value;
+            refreshMap();
+          });
+        }
+
+        var fitBtn = $("map-fit-btn");
+        if (fitBtn) {
+          fitBtn.addEventListener("click", function () {
+            if (mapAll) refreshMap();
+          });
+        }
+
+        var refreshBtn = $("map-refresh-btn");
+        if (refreshBtn) {
+          refreshBtn.addEventListener("click", function () {
+            api("/api/orders").then(function (res) {
+              if (res.ok) {
+                allOrders = res.data.orders;
+                refreshMap();
+                toast("Peta pesanan disegarkan.");
+              }
+            });
+          });
+        }
       }
 
-      storeMap.addListener("click", function (e) {
-        if (e.latLng) {
-          var lat = e.latLng.lat();
-          var lng = e.latLng.lng();
-          var newPos = { lat: lat, lng: lng };
-          if (storeMapMarker.position !== undefined) {
-            storeMapMarker.position = newPos;
-          } else if (storeMapMarker.setPosition) {
-            storeMapMarker.setPosition(newPos);
-          }
-          storeMap.panTo(newPos);
-          onStorePosChanged(lat, lng);
+      setTimeout(function () {
+        if (mapAll) {
+          mapAll.invalidateSize();
+          refreshMap();
         }
-      });
-
-      onStorePosChanged(curLat, curLng);
-
-      // Listen to manual typing on s-lat / s-lng
-      $("s-lat").addEventListener("input", syncStoreInputToMap);
-      $("s-lng").addEventListener("input", syncStoreInputToMap);
-    } catch (err) {
-      console.warn("Error loading store map picker:", err);
-      storeMapStarted = false;
+      }, 100);
     }
+
+    if (!allOrders || allOrders.length === 0) {
+      api("/api/orders").then(function (res) {
+        if (res.ok) allOrders = res.data.orders;
+        initOrRefresh();
+      }).catch(initOrRefresh);
+    } else {
+      initOrRefresh();
+    }
+  }
+
+  /* ---- Store Map Picker di Pengaturan Toko (Leaflet) ---- */
+  var storeMap = null;
+  var storeMapMarker = null;
+
+  function ensureStoreMap() {
+    var el = $("store-map");
+    if (!el || el.clientWidth === 0 || !window.L) return;
+    if (storeMap) {
+      setTimeout(function () {
+        storeMap.invalidateSize();
+        syncStoreInputToMap();
+      }, 100);
+      return;
+    }
+
+    var curLat = Number($("s-lat").value) || -6.2087634;
+    var curLng = Number($("s-lng").value) || 106.845599;
+    var centerPos = [curLat, curLng];
+
+    storeMap = L.map(el, { zoomControl: true }).setView(centerPos, 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(storeMap);
+
+    var storeIcon = L.divIcon({
+      className: "",
+      html: '<div class="pin-admin-store" style="cursor:grab">🏬 Geser Titik Toko</div>',
+      iconSize: [140, 30],
+      iconAnchor: [70, 15]
+    });
+
+    storeMapMarker = L.marker(centerPos, { icon: storeIcon, draggable: true }).addTo(storeMap);
+
+    function onStorePosChanged(lat, lng) {
+      $("s-lat").value = Number(lat).toFixed(6);
+      $("s-lng").value = Number(lng).toFixed(6);
+      $("store-map-hint").textContent = "✓ Titik Toko Tersimpan (" + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5) + ")";
+      fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.display_name) {
+            $("store-map-hint").textContent = "✓ Alamat Toko: " + d.display_name;
+          }
+        }).catch(function () {});
+    }
+
+    storeMapMarker.on("dragend", function (e) {
+      var pos = e.target.getLatLng();
+      onStorePosChanged(pos.lat, pos.lng);
+    });
+
+    storeMap.on("click", function (e) {
+      storeMapMarker.setLatLng(e.latlng);
+      storeMap.panTo(e.latlng);
+      onStorePosChanged(e.latlng.lat, e.latlng.lng);
+    });
+
+    $("s-lat").addEventListener("input", syncStoreInputToMap);
+    $("s-lng").addEventListener("input", syncStoreInputToMap);
+
+    setTimeout(function () {
+      storeMap.invalidateSize();
+    }, 150);
   }
 
   function syncStoreInputToMap() {
     var lat = Number($("s-lat").value);
     var lng = Number($("s-lng").value);
     if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-      var pos = { lat: lat, lng: lng };
+      var pos = [lat, lng];
       if (storeMap && storeMapMarker) {
-        if (storeMapMarker.position !== undefined) storeMapMarker.position = pos;
-        else if (storeMapMarker.setPosition) storeMapMarker.setPosition(pos);
+        storeMapMarker.setLatLng(pos);
         storeMap.panTo(pos);
       }
     }
