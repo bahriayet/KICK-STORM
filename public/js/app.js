@@ -459,7 +459,8 @@ function cartCount() {
 function productImg(p) {
   if (p && p.image_url && p.image_url.trim()) return p.image_url.trim();
   if (p && p.image && p.image.trim()) return p.image.trim();
-  var idx = (p && p.id) ? (((p.id - 1) % 6) + 1) : 1;
+  var idNum = (p && p.id != null) ? Number(p.id) : 1;
+  var idx = (!isNaN(idNum) && idNum > 0) ? (((idNum - 1) % 6) + 1) : 1;
   return "/images/koleksi_" + idx + ".jpg";
 }
 
@@ -610,7 +611,34 @@ function renderProducts(products, variantFilter, sortBy) {
       '<button class="btn btn-wishlist ' + (inWishlist ? "active" : "") + '" type="button" data-wishlist="' + p.id + '" aria-label="' + (inWishlist ? "Hapus dari wishlist" : "Tambah ke wishlist") + '">' + heartSvg + "</button>" +
       "</div></article>";
   }).join("");
-wireBtns();
+  wireBtns();
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  var cards = grid.querySelectorAll(".card");
+  var rect = grid.getBoundingClientRect();
+  var inView = rect.top <= window.innerHeight * 0.95 && rect.bottom >= 0;
+
+  if (inView) {
+    gsap.fromTo(cards, { autoAlpha: 0, y: 15 }, { autoAlpha: 1, y: 0, duration: 0.35, stagger: 0.04, ease: "power2.out", clearProps: "transform,opacity,visibility", overwrite: "auto" });
+  } else {
+    ScrollTrigger.batch(cards, {
+      start: "top 92%",
+      once: true,
+      onEnter: function (batch) {
+        gsap.fromTo(batch, { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.9, stagger: 0.1, ease: "power3.out", clearProps: "transform,opacity,visibility", overwrite: "auto" });
+      }
+    });
+  }
+
+  requestAnimationFrame(function () {
+    if (window.ScrollTrigger) ScrollTrigger.refresh();
+  });
+
+  setTimeout(function () {
+    grid.querySelectorAll(".stock-bar i").forEach(function (el) { el.classList.add("fill"); });
+  }, 150);
+}
 
 /* ---- Size Guide ---- */
 var SIZE_GUIDE = [
@@ -675,45 +703,24 @@ var SIZE_GUIDE = [
   var theme = "dark";
   try { theme = localStorage.getItem("ks_theme") || "dark"; } catch (e) { theme = "dark"; }
   var btn = document.getElementById("theme-toggle");
-  if (!btn) return;
   function paint() {
     document.documentElement.dataset.theme = theme;
-    btn.textContent = theme === "dark" ? "\u2600" : "\u263e";
-    btn.setAttribute("aria-label", theme === "dark" ? "Aktifkan tema terang" : "Aktifkan tema gelap");
+    if (btn) {
+      btn.innerHTML = theme === "dark"
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+      btn.setAttribute("aria-label", theme === "dark" ? "Aktifkan tema terang" : "Aktifkan tema gelap");
+    }
   }
   paint();
-  btn.addEventListener("click", function () {
-    theme = theme === "dark" ? "light" : "dark";
-    try { localStorage.setItem("ks_theme", theme); } catch (e) { }
-    paint();
-  });
-})();
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  var cards = grid.querySelectorAll(".card");
-  var rect = grid.getBoundingClientRect();
-  var inView = rect.top <= window.innerHeight * 0.95 && rect.bottom >= 0;
-
-  if (inView) {
-    gsap.fromTo(cards, { autoAlpha: 0, y: 15 }, { autoAlpha: 1, y: 0, duration: 0.35, stagger: 0.04, ease: "power2.out", clearProps: "transform,opacity,visibility", overwrite: "auto" });
-  } else {
-    ScrollTrigger.batch(cards, {
-      start: "top 92%",
-      once: true,
-      onEnter: function (batch) {
-        gsap.fromTo(batch, { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.9, stagger: 0.1, ease: "power3.out", clearProps: "transform,opacity,visibility", overwrite: "auto" });
-      }
+  if (btn) {
+    btn.addEventListener("click", function () {
+      theme = theme === "dark" ? "light" : "dark";
+      try { localStorage.setItem("ks_theme", theme); } catch (e) { }
+      paint();
     });
   }
-
-  requestAnimationFrame(function () {
-    if (window.ScrollTrigger) ScrollTrigger.refresh();
-  });
-
-  setTimeout(function () {
-    grid.querySelectorAll(".stock-bar i").forEach(function (el) { el.classList.add("fill"); });
-  }, 150);
-}
+})();
 
 function animNum(el, end) {
   var o = { v: 0 };
@@ -2067,12 +2074,21 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
+var variantFilter = "all";
+var sortBy = "";
+
 fetch("/api/products")
-  .then(function (r) { return r.json(); })
+  .then(function (r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  })
   .then(function (data) {
-    PRODUCTS = data.products;
+    PRODUCTS = data.products || [];
     renderProducts(PRODUCTS, variantFilter, sortBy);
     if (window.ScrollTrigger) setTimeout(function () { ScrollTrigger.refresh(); }, 250);
+  })
+  .catch(function (err) {
+    console.error("Gagal memuat produk dari API:", err);
   });
 
   // Filter chip handlers

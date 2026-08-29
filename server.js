@@ -10,12 +10,8 @@ const db = require("./db");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === "production";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (isProd ? "" : "kickstorm-admin");
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "storm2026";
 const ADMIN_TOKEN_TTL_HOURS = Math.max(1, Number(process.env.ADMIN_TOKEN_TTL_HOURS) || 72);
-
-if (!ADMIN_PASSWORD) {
-  throw new Error("ADMIN_PASSWORD wajib diatur (lihat .env.example) sebelum production.");
-}
 const ORDER_STATUSES = ["awaiting_payment", "pending", "paid", "shipped", "delivered", "cancelled"];
 const VARIANTS = ["mono", "void", "volt", "ghost", "dark", "cream"];
 const REFERRAL_PERCENT = 5;
