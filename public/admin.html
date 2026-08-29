@@ -217,7 +217,7 @@
     <div class="table-wrap products-desktop-wrap">
       <table>
         <thead>
-          <tr><th>ID</th><th>Nama</th><th>Badge</th><th>Harga</th><th>Variant</th><th>Stok</th><th>Terjual</th><th>Aksi</th></tr>
+          <tr><th>ID</th><th>Foto</th><th>Nama</th><th>Badge</th><th>Harga</th><th>Variant</th><th>Stok</th><th>Terjual</th><th>Aksi</th></tr>
         </thead>
         <tbody id="products-body"></tbody>
       </table>
@@ -413,6 +413,11 @@
           <label for="s-lng">Longitude Toko</label>
           <input class="field" id="s-lng" type="number" step="any" placeholder="106.845599">
         </div>
+        <div class="form-field full" style="margin-top:2px">
+          <label style="font-size:.78rem;color:var(--muted)">🗺️ Titik Lokasi Toko di Peta (Klik atau geser pin untuk atur koordinat otomatis):</label>
+          <div id="store-map" style="width:100%;height:260px;border-radius:10px;margin-top:6px;background:#18181c;border:1px solid var(--stroke-2);overflow:hidden"></div>
+          <p class="muted" id="store-map-hint" style="font-size:.74rem;margin-top:6px"></p>
+        </div>
         <div class="form-field">
           <label for="s-free">Gratis Ongkir Mulai (Rp, 0 = nonaktif)</label>
           <input class="field" id="s-free" type="number" min="0" placeholder="1500000">
@@ -483,6 +488,17 @@
         <div class="form-field">
           <label for="p-sold">Terjual</label>
           <input class="field" id="p-sold" type="number" min="0" step="1" placeholder="0">
+        </div>
+        <div class="form-field full">
+          <label>Foto Produk (Disimpan ke Database Neon)</label>
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+            <input class="field" type="file" id="p-image-file" accept="image/png, image/jpeg, image/webp" style="padding:6px;">
+            <button type="button" class="btn btn-ghost btn-sm" id="p-image-clear" style="white-space:nowrap;display:none;">Hapus Foto</button>
+          </div>
+          <input class="field" id="p-image-url" placeholder="Atau tempel URL gambar langsung (https://... / data:image/...)">
+          <div id="p-image-preview-wrap" style="margin-top:8px;display:none;">
+            <img id="p-image-preview" src="" alt="Pratinjau Foto" style="max-height:120px;max-width:180px;border-radius:8px;object-fit:cover;border:1px solid var(--stroke-2);display:block;background:#18181c;">
+          </div>
         </div>
       </div>
       <div class="modal-foot">

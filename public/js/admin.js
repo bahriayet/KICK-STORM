@@ -122,8 +122,9 @@
   }
 
   function itemLabel(i) {
-    return escapeHtml(i.product_name + " \u00d7" + i.qty + (i.size ? " (Uk. " + i.size + ")" : "")) +
-      (i.colorway ? '<span class="muted" style="font-size:.7rem;display:block">Colorway: ' + escapeHtml(colorwayName(i.colorway)) + "</span>" : "");
+    var thumb = (i.image_url && i.image_url.trim()) ? '<img src="' + escapeHtml(i.image_url.trim()) + '" style="width:32px;height:32px;border-radius:4px;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:6px;background:#18181c;">' : "";
+    return '<div style="display:flex;align-items:center;gap:6px;">' + thumb + '<div>' + escapeHtml(i.product_name + " \u00d7" + i.qty + (i.size ? " (Uk. " + i.size + ")" : "")) +
+      (i.colorway ? '<span class="muted" style="font-size:.7rem;display:block">Colorway: ' + escapeHtml(colorwayName(i.colorway)) + "</span>" : "") + '</div></div>';
   }
 
   function renderCustomerProfile(email) {
@@ -308,8 +309,10 @@
       }
       body.innerHTML = products.map(function (p) {
         var stockClass = p.stock <= 30 ? "stock-low" : "stock-ok";
+        var imgUrl = (p.image_url && p.image_url.trim()) ? p.image_url.trim() : ("/images/koleksi_" + (((p.id - 1) % 6) + 1) + ".jpg");
         return "<tr>" +
           '<td class="mono muted">#' + p.id + "</td>" +
+          '<td><img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(p.name) + '" style="width:44px;height:44px;border-radius:8px;object-fit:cover;background:#18181c;display:block;border:1px solid var(--stroke-2);"></td>' +
           '<td><div class="name-cell">' + escapeHtml(p.name) + '<br><span class="muted" style="font-size:.74rem">' + escapeHtml(p.tag) + "</span></div></td>" +
           '<td><span class="badge-pill">' + escapeHtml(p.badge) + "</span></td>" +
           '<td class="price">' + rupiah(p.price) + "</td>" +
@@ -325,9 +328,11 @@
       if (pmWrap) {
         pmWrap.innerHTML = products.map(function (p) {
           var stockClass = p.stock <= 30 ? "stock-low" : "stock-ok";
+          var imgUrl = (p.image_url && p.image_url.trim()) ? p.image_url.trim() : ("/images/koleksi_" + (((p.id - 1) % 6) + 1) + ".jpg");
           return '<div class="admin-m-card">' +
-            '<div class="admin-m-top">' +
-              '<div><strong class="admin-m-title">' + escapeHtml(p.name) + '</strong><div class="admin-m-sub">#' + p.id + ' \u2022 ' + escapeHtml(p.tag) + "</div></div>" +
+            '<div class="admin-m-top" style="align-items:center;gap:12px;">' +
+              '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(p.name) + '" style="width:48px;height:48px;border-radius:8px;object-fit:cover;background:#18181c;flex-shrink:0;border:1px solid var(--stroke-2);">' +
+              '<div style="flex:1;"><strong class="admin-m-title">' + escapeHtml(p.name) + '</strong><div class="admin-m-sub">#' + p.id + ' \u2022 ' + escapeHtml(p.tag) + "</div></div>" +
               '<span class="badge-pill">' + escapeHtml(p.badge) + "</span>" +
             "</div>" +
             '<div class="admin-m-mid">' +
@@ -543,6 +548,7 @@
     if (targetPanel) targetPanel.classList.add("active");
 
     if (tabKey === "map") ensureMapAll();
+    if (tabKey === "settings") ensureStoreMap();
 
     // Close drawer if on mobile
     closeMobileDrawer();
@@ -1068,6 +1074,22 @@
 
   /* product modal */
   var overlay = $("product-overlay");
+
+  function setProductImagePreview(url) {
+    var pWrap = $("p-image-preview-wrap");
+    var pImg = $("p-image-preview");
+    var pClear = $("p-image-clear");
+    if (url && url.trim()) {
+      pImg.src = url.trim();
+      pWrap.style.display = "block";
+      if (pClear) pClear.style.display = "inline-block";
+    } else {
+      pImg.src = "";
+      pWrap.style.display = "none";
+      if (pClear) pClear.style.display = "none";
+    }
+  }
+
   function openModal(product) {
     $("product-modal-title").textContent = product ? "Edit Produk" : "Tambah Produk";
     $("p-id").value = product ? product.id : "";
@@ -1078,10 +1100,42 @@
     $("p-price").value = product ? product.price : "";
     $("p-stock").value = product ? product.stock : "";
     $("p-sold").value = product ? product.sold : 0;
+    var imgVal = product && product.image_url ? product.image_url : "";
+    $("p-image-url").value = imgVal;
+    $("p-image-file").value = "";
+    setProductImagePreview(imgVal);
     overlay.classList.add("open");
     setTimeout(function () { $("p-name").focus(); }, 80);
   }
   function closeModal() { overlay.classList.remove("open"); }
+
+  $("p-image-url").addEventListener("input", function () {
+    setProductImagePreview(this.value);
+  });
+
+  $("p-image-file").addEventListener("change", function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast("Ukuran file maksimal 8MB.", true);
+      this.value = "";
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var base64 = e.target.result;
+      $("p-image-url").value = base64;
+      setProductImagePreview(base64);
+      toast("Foto berhasil dipilih \u2014 klik Simpan untuk mengunggah ke Neon.");
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("p-image-clear").addEventListener("click", function () {
+    $("p-image-file").value = "";
+    $("p-image-url").value = "";
+    setProductImagePreview("");
+  });
 
   $("add-product-btn").addEventListener("click", function () { openModal(null); });
   $("product-modal-close").addEventListener("click", closeModal);
@@ -1099,7 +1153,8 @@
       variant: $("p-variant").value,
       price: Number($("p-price").value),
       stock: Number($("p-stock").value),
-      sold: Number($("p-sold").value) || 0
+      sold: Number($("p-sold").value) || 0,
+      image_url: $("p-image-url").value.trim()
     };
     var btn = $("product-save");
     btn.disabled = true;
@@ -1109,7 +1164,7 @@
     }).then(function (res) {
       if (res.status === 401) return logout();
       if (res.ok) {
-        toast(id ? "Produk diperbarui." : "Produk ditambahkan.");
+        toast(id ? "Produk & foto diperbarui di Neon." : "Produk & foto disimpan ke Neon.");
         closeModal();
         refresh();
       } else {
@@ -1944,68 +1999,350 @@
 
   $("waitlist-refresh").addEventListener("click", renderWaitlist);
 
-  /* ---- Peta semua pesanan ---- */
+  /* ---- Google Maps Platform (GMP MCP Standards) ---- */
+  var gmpApiKey = "";
   var mapAll = null;
   var mapAllMarkers = [];
+  var mapAllStoreMarker = null;
+  var mapAllInfo = null;
+  var mapAllStarted = false;
+
+  var storeMap = null;
+  var storeMapMarker = null;
+  var storeMapStarted = false;
+  var storeGeocoder = null;
+
+  function loadGMP(key) {
+    if (window.google && window.google.maps && window.google.maps.importLibrary) return Promise.resolve();
+    return new Promise(function (resolve) {
+      (function (g) {
+        var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
+        b[c] = b[c] || {};
+        var d = b[c].maps = b[c].maps || {}, r = new Set(), e = new URLSearchParams(), u = function () {
+          return h || (h = new Promise(function (f, n) {
+            a = m.createElement("script");
+            e.set("libraries", Array.from(r) + "");
+            for (k in g) e.set(k.replace(/[A-Z]/g, function (t) { return "_" + t[0].toLowerCase(); }), g[k]);
+            e.set("callback", c + ".maps." + q);
+            a.src = "https://maps." + c + "apis.com/maps/api/js?" + e;
+            d[q] = f;
+            a.onerror = function () { h = n(Error(p + " could not load.")); };
+            a.nonce = (m.querySelector("script[nonce]") && m.querySelector("script[nonce]").nonce) || "";
+            m.head.append(a);
+          }));
+        };
+        d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = function (f) {
+          var n = Array.prototype.slice.call(arguments, 1);
+          return r.add(f) && u().then(function () { return d[l].apply(d, [f].concat(n)); });
+        };
+      })({
+        key: key,
+        v: "weekly",
+        internalUsageAttributionIds: "gmp_mcp_codeassist_v0.1_github"
+      });
+      resolve();
+    });
+  }
+
   function refreshMap() {
     var panel = $("panel-map");
     if (!panel || !panel.classList.contains("active") || !mapAll) return;
     var withLoc = allOrders.filter(function (o) { return o.lat && o.lng; });
-    if (withLoc.length === 0) {
+    if (withLoc.length === 0 && (!storeCfg || !storeCfg.lat || !storeCfg.lng)) {
       $("map-all-hint").textContent = "Belum ada pesanan dengan lokasi peta.";
       return;
     }
-    mapAllMarkers.forEach(function (m) { m.setMap(null); });
+
+    mapAllMarkers.forEach(function (m) {
+      if (m.setMap) m.setMap(null);
+      else if (m.map !== undefined) m.map = null;
+    });
     mapAllMarkers = [];
+    if (mapAllStoreMarker) {
+      if (mapAllStoreMarker.setMap) mapAllStoreMarker.setMap(null);
+      else if (mapAllStoreMarker.map !== undefined) mapAllStoreMarker.map = null;
+      mapAllStoreMarker = null;
+    }
+
     var bounds = new google.maps.LatLngBounds();
-    var colors = { pending: "#f5f5f2", paid: "#f5c542", shipped: "#5aa9ff", delivered: "#54d98c", cancelled: "#ff5a4e" };
+    var colors = {
+      awaiting_payment: "#f5f5f2",
+      pending: "#ffaa00",
+      paid: "#f5c542",
+      shipped: "#5aa9ff",
+      delivered: "#54d98c",
+      cancelled: "#ff5a4e"
+    };
+
+    if (!mapAllInfo) {
+      mapAllInfo = new google.maps.InfoWindow();
+    }
+
+    // Add Store Marker
+    if (storeCfg && storeCfg.lat && storeCfg.lng) {
+      var storePos = { lat: Number(storeCfg.lat), lng: Number(storeCfg.lng) };
+      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+        var storeEl = document.createElement("div");
+        storeEl.innerHTML = '<div style="background:#D6FF3F;color:#0A0A0C;font-weight:700;font-size:11px;padding:5px 9px;border-radius:20px;border:2px solid #0A0A0C;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:4px">🏬 ' + escapeHtml(storeCfg.name || "Toko KICKSTORM") + '</div>';
+        mapAllStoreMarker = new google.maps.marker.AdvancedMarkerElement({
+          position: storePos,
+          map: mapAll,
+          title: "Toko KICKSTORM",
+          content: storeEl
+        });
+      } else {
+        mapAllStoreMarker = new google.maps.Marker({
+          position: storePos,
+          map: mapAll,
+          title: "Toko KICKSTORM",
+          icon: {
+            path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+            scale: 6,
+            fillColor: "#D6FF3F",
+            fillOpacity: 1,
+            strokeColor: "#0A0A0C",
+            strokeWeight: 2
+          }
+        });
+      }
+      bounds.extend(storePos);
+    }
+
+    // Add Order Markers
     withLoc.forEach(function (o) {
       var pos = { lat: Number(o.lat), lng: Number(o.lng) };
-      var marker = new google.maps.Marker({
-        position: pos, map: mapAll,
-        title: "#" + o.id + " " + o.customer_name,
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: colors[o.status] || "#9c9c9c", fillOpacity: 0.95, strokeColor: "#141416", strokeWeight: 2 }
-      });
-      var info = new google.maps.InfoWindow({
-        content: '<div style="font-family:sans-serif;font-size:12px;min-width:160px"><strong>#' + o.id + " " + escapeHtml(o.customer_name) + '</strong><br>' + escapeHtml(o.address) + "<br><span style='color:#666'>" + (STATUS_LABELS[o.status] || o.status) + " \u2022 " + rupiah(o.total) + "</span></div>"
-      });
-      marker.addListener("click", function () { info.open(mapAll, marker); });
+      var marker = null;
+      var statusColor = colors[o.status] || "#9c9c9c";
+      var statusLabel = STATUS_LABELS[o.status] || o.status;
+
+      var infoContent = '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:12px;color:#141416;min-width:200px;line-height:1.4">' +
+        '<div style="font-weight:700;font-size:13px;margin-bottom:3px">#' + o.id + " \u2014 " + escapeHtml(o.customer_name) + '</div>' +
+        '<div style="color:#444;margin-bottom:6px;font-size:11px">' + escapeHtml(o.address) + '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+        '<span style="background:' + statusColor + ';color:#141416;font-weight:600;font-size:10px;padding:2px 6px;border-radius:4px">' + statusLabel + '</span>' +
+        '<strong style="font-size:12px">' + rupiah(o.total) + '</strong>' +
+        '</div>' +
+        '<a href="https://www.google.com/maps/dir/?api=1&destination=' + o.lat + ',' + o.lng + '&travelmode=driving" target="_blank" rel="noopener" style="display:block;text-align:center;background:#141416;color:#D6FF3F;padding:6px 10px;border-radius:6px;text-decoration:none;font-weight:600;font-size:11px">📍 Buka Rute Google Maps ↗</a>' +
+        '</div>';
+
+      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+        var pin = document.createElement("div");
+        pin.style.width = "14px";
+        pin.style.height = "14px";
+        pin.style.borderRadius = "50%";
+        pin.style.backgroundColor = statusColor;
+        pin.style.border = "2px solid #141416";
+        pin.style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
+        marker = new google.maps.marker.AdvancedMarkerElement({
+          position: pos,
+          map: mapAll,
+          title: "#" + o.id + " " + o.customer_name,
+          content: pin
+        });
+        marker.addListener("click", function () {
+          mapAllInfo.setContent(infoContent);
+          mapAllInfo.open({ map: mapAll, anchor: marker });
+        });
+      } else {
+        marker = new google.maps.Marker({
+          position: pos,
+          map: mapAll,
+          title: "#" + o.id + " " + o.customer_name,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 7,
+            fillColor: statusColor,
+            fillOpacity: 0.95,
+            strokeColor: "#141416",
+            strokeWeight: 2
+          }
+        });
+        marker.addListener("click", function () {
+          mapAllInfo.setContent(infoContent);
+          mapAllInfo.open(mapAll, marker);
+        });
+      }
+
       mapAllMarkers.push(marker);
       bounds.extend(pos);
     });
-    mapAll.fitBounds(bounds);
-    if (mapAll.getZoom() > 14) mapAll.setZoom(14);
-    $("map-all-hint").textContent = withLoc.length + " pesanan ditampilkan di peta.";
+
+    if (withLoc.length > 0 || (storeCfg && storeCfg.lat)) {
+      mapAll.fitBounds(bounds);
+      google.maps.event.addListenerOnce(mapAll, "idle", function () {
+        if (mapAll.getZoom() > 14) mapAll.setZoom(14);
+      });
+    }
+
+    $("map-all-hint").textContent = withLoc.length + " pesanan aktif terpasang di peta radar.";
     $("map-legend").hidden = false;
   }
 
-  var mapAllStarted = false;
-  function ensureMapAll() {
+  async function ensureMapAll() {
     var el = $("map-all");
     if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
-    if (mapAllStarted) return;
-    mapAllStarted = true;
-    if (window.google && google.maps) {
-      mapAll = new google.maps.Map(el, { center: storeCfg ? { lat: storeCfg.lat, lng: storeCfg.lng } : { lat: -6.2, lng: 106.816666 }, zoom: 11, mapTypeControl: false, fullscreenControl: false, streetViewControl: false });
+    if (mapAllStarted) {
       refreshMap();
       return;
     }
-    fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
-      if (!cfg.googleMapsApiKey) {
-        $("map-all-hint").textContent = "Atur GOOGLE_MAPS_API_KEY di .env untuk melihat peta.";
+    mapAllStarted = true;
+
+    try {
+      var cfgRes = await fetch("/api/config").then(function (r) { return r.json(); });
+      gmpApiKey = cfgRes.googleMapsApiKey || "";
+      if (!gmpApiKey) {
+        $("map-all-hint").textContent = "Atur GOOGLE_MAPS_API_KEY di file .env untuk mengaktifkan peta interaktif.";
         return;
       }
-      window.__kickstormAdminMapsReady2 = function () {
-        delete window.__kickstormAdminMapsReady2;
-        mapAll = new google.maps.Map(el, { center: { lat: -6.2, lng: 106.816666 }, zoom: 11, mapTypeControl: false, fullscreenControl: false, streetViewControl: false });
-        refreshMap();
-      };
-      var s = document.createElement("script");
-      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(cfg.googleMapsApiKey) + "&callback=__kickstormAdminMapsReady2";
-      s.async = true;
-      s.defer = true;
-      document.head.appendChild(s);
-    }).catch(function () { });
+
+      await loadGMP(gmpApiKey);
+      var mapsLib = await google.maps.importLibrary("maps");
+      await google.maps.importLibrary("marker").catch(function () { return null; });
+
+      var centerPos = storeCfg && storeCfg.lat ? { lat: Number(storeCfg.lat), lng: Number(storeCfg.lng) } : { lat: -6.2, lng: 106.816666 };
+
+      mapAll = new mapsLib.Map(el, {
+        center: centerPos,
+        zoom: 11,
+        mapId: "DEMO_MAP_ID",
+        mapTypeControl: false,
+        fullscreenControl: true,
+        streetViewControl: false
+      });
+
+      refreshMap();
+    } catch (err) {
+      console.warn("Error loading admin map:", err);
+      mapAllStarted = false;
+    }
+  }
+
+  /* ---- Store Map Picker di Pengaturan Toko ---- */
+  async function ensureStoreMap() {
+    var el = $("store-map");
+    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
+    if (storeMapStarted) {
+      updateStoreMapMarker();
+      return;
+    }
+    storeMapStarted = true;
+
+    try {
+      var cfgRes = await fetch("/api/config").then(function (r) { return r.json(); });
+      gmpApiKey = cfgRes.googleMapsApiKey || "";
+      if (!gmpApiKey) {
+        $("store-map-hint").textContent = "Atur GOOGLE_MAPS_API_KEY di file .env untuk memilih lokasi toko langsung dari peta.";
+        return;
+      }
+
+      await loadGMP(gmpApiKey);
+      var mapsLib = await google.maps.importLibrary("maps");
+      await google.maps.importLibrary("marker").catch(function () { return null; });
+      var geocodingLib = await google.maps.importLibrary("geocoding").catch(function () { return null; });
+
+      if (geocodingLib && geocodingLib.Geocoder) {
+        storeGeocoder = new geocodingLib.Geocoder();
+      } else if (google.maps.Geocoder) {
+        storeGeocoder = new google.maps.Geocoder();
+      }
+
+      var curLat = Number($("s-lat").value) || -6.2087634;
+      var curLng = Number($("s-lng").value) || 106.845599;
+      var centerPos = { lat: curLat, lng: curLng };
+
+      storeMap = new mapsLib.Map(el, {
+        center: centerPos,
+        zoom: 14,
+        mapId: "DEMO_MAP_ID",
+        mapTypeControl: false,
+        fullscreenControl: false,
+        streetViewControl: false,
+        gestureHandling: "greedy"
+      });
+
+      function onStorePosChanged(lat, lng) {
+        $("s-lat").value = Number(lat).toFixed(6);
+        $("s-lng").value = Number(lng).toFixed(6);
+        if (storeGeocoder) {
+          storeGeocoder.geocode({ location: { lat: Number(lat), lng: Number(lng) } }, function (results, status) {
+            if (status === "OK" && results && results[0]) {
+              $("store-map-hint").textContent = "\u2713 Lokasi Toko: " + results[0].formatted_address;
+            } else {
+              $("store-map-hint").textContent = "\u2713 Koordinat: " + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5);
+            }
+          });
+        } else {
+          $("store-map-hint").textContent = "\u2713 Koordinat: " + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5);
+        }
+      }
+
+      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+        storeMapMarker = new google.maps.marker.AdvancedMarkerElement({
+          position: centerPos,
+          map: storeMap,
+          gmpDraggable: true,
+          title: "Geser pin untuk menentukan titik lokasi toko"
+        });
+        storeMapMarker.addListener("dragend", function () {
+          var p = storeMapMarker.position;
+          var rlat = typeof p.lat === "function" ? p.lat() : p.lat;
+          var rlng = typeof p.lng === "function" ? p.lng() : p.lng;
+          onStorePosChanged(rlat, rlng);
+        });
+      } else {
+        storeMapMarker = new google.maps.Marker({
+          position: centerPos,
+          map: storeMap,
+          draggable: true,
+          title: "Geser pin untuk menentukan titik lokasi toko"
+        });
+        storeMapMarker.addListener("dragend", function () {
+          var p = storeMapMarker.getPosition();
+          onStorePosChanged(p.lat(), p.lng());
+        });
+      }
+
+      storeMap.addListener("click", function (e) {
+        if (e.latLng) {
+          var lat = e.latLng.lat();
+          var lng = e.latLng.lng();
+          var newPos = { lat: lat, lng: lng };
+          if (storeMapMarker.position !== undefined) {
+            storeMapMarker.position = newPos;
+          } else if (storeMapMarker.setPosition) {
+            storeMapMarker.setPosition(newPos);
+          }
+          storeMap.panTo(newPos);
+          onStorePosChanged(lat, lng);
+        }
+      });
+
+      onStorePosChanged(curLat, curLng);
+
+      // Listen to manual typing on s-lat / s-lng
+      $("s-lat").addEventListener("input", syncStoreInputToMap);
+      $("s-lng").addEventListener("input", syncStoreInputToMap);
+    } catch (err) {
+      console.warn("Error loading store map picker:", err);
+      storeMapStarted = false;
+    }
+  }
+
+  function syncStoreInputToMap() {
+    var lat = Number($("s-lat").value);
+    var lng = Number($("s-lng").value);
+    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      var pos = { lat: lat, lng: lng };
+      if (storeMap && storeMapMarker) {
+        if (storeMapMarker.position !== undefined) storeMapMarker.position = pos;
+        else if (storeMapMarker.setPosition) storeMapMarker.setPosition(pos);
+        storeMap.panTo(pos);
+      }
+    }
+  }
+
+  function updateStoreMapMarker() {
+    syncStoreInputToMap();
   }
 
   var chartTimer;

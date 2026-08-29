@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS products (
   variant TEXT NOT NULL DEFAULT 'mono',
   stock INT NOT NULL DEFAULT 0,
   sold INT NOT NULL DEFAULT 0,
+  image_url TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -62,7 +63,8 @@ CREATE TABLE IF NOT EXISTS order_items (
   price BIGINT NOT NULL,
   qty INT NOT NULL DEFAULT 1,
   size TEXT,
-  colorway TEXT
+  colorway TEXT,
+  image_url TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS admin_tokens (
