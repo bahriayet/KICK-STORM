@@ -457,7 +457,8 @@ function cartCount() {
 }
 
 function productImg(p) {
-  if (p && p.image) return p.image;
+  if (p && p.image_url && p.image_url.trim()) return p.image_url.trim();
+  if (p && p.image && p.image.trim()) return p.image.trim();
   var idx = (p && p.id) ? (((p.id - 1) % 6) + 1) : 1;
   return "/images/koleksi_" + idx + ".jpg";
 }
@@ -1153,15 +1154,49 @@ function confetti() {
   }).catch(function () { });
 })();
 
-/* ---- Google Maps: pilih alamat di peta ---- */
+/* ---- Google Maps: pilih alamat di peta (GMP MCP Standards) ---- */
 (function () {
   var apiKey = "";
   var map = null;
   var marker = null;
   var autocomplete = null;
+  var geocoder = null;
   var initDone = false;
   var starting = false;
   var GEO = { lat: -6.2, lng: 106.816666 };
+
+  // Dynamic Library Loader matching GMP standard
+  function loadGMP(key) {
+    if (window.google && window.google.maps && window.google.maps.importLibrary) return Promise.resolve();
+    return new Promise(function (resolve) {
+      (function (g) {
+        var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
+        b[c] = b[c] || {};
+        var d = b[c].maps = b[c].maps || {}, r = new Set(), e = new URLSearchParams(), u = function () {
+          return h || (h = new Promise(function (f, n) {
+            a = m.createElement("script");
+            e.set("libraries", Array.from(r) + "");
+            for (k in g) e.set(k.replace(/[A-Z]/g, function (t) { return "_" + t[0].toLowerCase(); }), g[k]);
+            e.set("callback", c + ".maps." + q);
+            a.src = "https://maps." + c + "apis.com/maps/api/js?" + e;
+            d[q] = f;
+            a.onerror = function () { h = n(Error(p + " could not load.")); };
+            a.nonce = (m.querySelector("script[nonce]") && m.querySelector("script[nonce]").nonce) || "";
+            m.head.append(a);
+          }));
+        };
+        d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = function (f) {
+          var n = Array.prototype.slice.call(arguments, 1);
+          return r.add(f) && u().then(function () { return d[l].apply(d, [f].concat(n)); });
+        };
+      })({
+        key: key,
+        v: "weekly",
+        internalUsageAttributionIds: "gmp_mcp_codeassist_v0.1_github"
+      });
+      resolve();
+    });
+  }
 
   function showHint(txt) {
     var h = document.getElementById("map-hint");
@@ -1171,12 +1206,12 @@ function confetti() {
   }
 
   function setLocation(lat, lng, address) {
-    document.getElementById("order-lat").value = lat.toFixed(6);
-    document.getElementById("order-lng").value = lng.toFixed(6);
+    document.getElementById("order-lat").value = Number(lat).toFixed(6);
+    document.getElementById("order-lng").value = Number(lng).toFixed(6);
     if (address) {
       document.getElementById("order-address").value = address;
       var d = distFromStore();
-      var out = "\u2713 Lokasi dipilih \u2014 " + lat.toFixed(5) + ", " + lng.toFixed(5);
+      var out = "\u2713 Lokasi dipilih \u2014 " + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5);
       if (d !== null && shipCfg && shipCfg.maxKm > 0) {
         out += d > shipCfg.maxKm
           ? " \u26a0 Di luar radius kirim (" + Math.round(d) + " km > maks " + shipCfg.maxKm + " km)!"
@@ -1189,10 +1224,17 @@ function confetti() {
   }
 
   function reverseGeocode(lat, lng) {
-    if (!window.google || !google.maps.Geocoder) return;
-    var gc = new google.maps.Geocoder();
-    gc.geocode({ location: { lat: lat, lng: lng } }, function (results, status) {
-      if (status === "OK" && results[0]) {
+    if (!geocoder) {
+      if (window.google && google.maps && google.maps.Geocoder) {
+        geocoder = new google.maps.Geocoder();
+      }
+    }
+    if (!geocoder) {
+      setLocation(lat, lng, "");
+      return;
+    }
+    geocoder.geocode({ location: { lat: Number(lat), lng: Number(lng) } }, function (results, status) {
+      if (status === "OK" && results && results[0]) {
         setLocation(lat, lng, results[0].formatted_address);
       } else {
         setLocation(lat, lng, "");
@@ -1201,54 +1243,126 @@ function confetti() {
   }
 
   function placeMarker(lat, lng, zoomTo) {
-    var pos = { lat: lat, lng: lng };
+    var pos = { lat: Number(lat), lng: Number(lng) };
     if (!marker) {
-      marker = new google.maps.Marker({ position: pos, map: map, draggable: true, title: "Geser untuk tepatkan lokasi" });
-      marker.addListener("dragend", function () {
-        reverseGeocode(marker.getPosition().lat(), marker.getPosition().lng());
-      });
+      if (window.google && google.maps && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+        marker = new google.maps.marker.AdvancedMarkerElement({
+          position: pos,
+          map: map,
+          gmpDraggable: true,
+          title: "Geser pin untuk tepatkan titik pengiriman"
+        });
+        marker.addListener("dragend", function () {
+          var p = marker.position;
+          var rlat = typeof p.lat === "function" ? p.lat() : p.lat;
+          var rlng = typeof p.lng === "function" ? p.lng() : p.lng;
+          reverseGeocode(rlat, rlng);
+        });
+      } else if (window.google && google.maps && google.maps.Marker) {
+        marker = new google.maps.Marker({
+          position: pos,
+          map: map,
+          draggable: true,
+          title: "Geser pin untuk tepatkan titik pengiriman"
+        });
+        marker.addListener("dragend", function () {
+          var p = marker.getPosition();
+          reverseGeocode(p.lat(), p.lng());
+        });
+      }
     } else {
-      marker.setPosition(pos);
+      if (marker.position !== undefined) {
+        marker.position = pos;
+      } else if (marker.setPosition) {
+        marker.setPosition(pos);
+      }
     }
-    if (zoomTo) map.setZoom(16);
-    map.panTo(pos);
+    if (map) {
+      if (zoomTo) map.setZoom(16);
+      map.panTo(pos);
+    }
     reverseGeocode(lat, lng);
   }
 
-  function initMap() {
-    if (initDone || !google || !google.maps) return;
+  window.__updateStoreCheckoutMap = function (lat, lng) {
+    if (map) {
+      placeMarker(lat, lng, true);
+    }
+  };
+
+  async function initMap() {
+    if (initDone || !window.google || !google.maps || !google.maps.importLibrary) return;
     initDone = true;
-    map = new google.maps.Map(document.getElementById("order-map"), {
-      center: GEO, zoom: 12,
-      mapTypeControl: false,
-      fullscreenControl: false,
-      streetViewControl: false,
-      gestureHandling: "greedy"
-    });
-    google.maps.event.addListenerOnce(map, "tilesloaded", function () {
-      placeMarker(GEO.lat, GEO.lng, false);
-    });
-    map.addListener("click", function (e) {
-      placeMarker(e.latLng.lat(), e.latLng.lng(), true);
-    });
-    autocomplete = new google.maps.places.Autocomplete(document.getElementById("order-address-search"), {
-      types: ["address"],
-      fields: ["formatted_address", "geometry"],
-      componentRestrictions: { country: "ID" }
-    });
-    autocomplete.addListener("place_changed", function () {
-      var p = autocomplete.getPlace();
-      if (!p || !p.geometry) {
-        showHint("Alamat tidak ditemukan, geser pin di peta atau ketik ulang.");
-        return;
+    var el = document.getElementById("order-map");
+    if (!el) return;
+
+    try {
+      var mapsLib = await google.maps.importLibrary("maps");
+      var markerLib = await google.maps.importLibrary("marker").catch(function () { return null; });
+      var placesLib = await google.maps.importLibrary("places").catch(function () { return null; });
+      var geocodingLib = await google.maps.importLibrary("geocoding").catch(function () { return null; });
+
+      if (geocodingLib && geocodingLib.Geocoder) {
+        geocoder = new geocodingLib.Geocoder();
+      } else if (google.maps.Geocoder) {
+        geocoder = new google.maps.Geocoder();
       }
-      map.setCenter(p.geometry.location);
-      if (p.geometry.viewport) map.fitBounds(p.geometry.viewport);
-      placeMarker(p.geometry.location.lat(), p.geometry.location.lng(), true);
-    });
-    document.getElementById("order-address-search").addEventListener("keydown", function (e) {
-      if (e.key === "Enter") e.preventDefault();
-    });
+
+      var defaultCenter = (shipCfg && shipCfg.store && shipCfg.store.lat)
+        ? { lat: Number(shipCfg.store.lat), lng: Number(shipCfg.store.lng) }
+        : GEO;
+
+      map = new mapsLib.Map(el, {
+        center: defaultCenter,
+        zoom: 13,
+        mapId: "DEMO_MAP_ID",
+        mapTypeControl: false,
+        fullscreenControl: false,
+        streetViewControl: false,
+        gestureHandling: "greedy"
+      });
+
+      map.addListener("click", function (e) {
+        if (e.latLng) {
+          placeMarker(e.latLng.lat(), e.latLng.lng(), false);
+        }
+      });
+
+      // Places Autocomplete
+      var searchInput = document.getElementById("order-address-search");
+      if (searchInput && placesLib && placesLib.Autocomplete) {
+        autocomplete = new placesLib.Autocomplete(searchInput, {
+          types: ["geocode", "establishment"],
+          fields: ["formatted_address", "geometry", "name"],
+          componentRestrictions: { country: "ID" }
+        });
+        autocomplete.addListener("place_changed", function () {
+          var p = autocomplete.getPlace();
+          if (!p || !p.geometry || !p.geometry.location) {
+            showHint("Alamat tidak ditemukan, silakan geser pin langsung di peta.");
+            return;
+          }
+          var loc = p.geometry.location;
+          var locLat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
+          var locLng = typeof loc.lng === "function" ? loc.lng() : loc.lng;
+          map.setCenter({ lat: locLat, lng: locLng });
+          if (p.geometry.viewport) {
+            map.fitBounds(p.geometry.viewport);
+          } else {
+            map.setZoom(16);
+          }
+          placeMarker(locLat, locLng, false);
+        });
+        searchInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") e.preventDefault();
+        });
+      }
+
+      // Initial placement
+      placeMarker(defaultCenter.lat, defaultCenter.lng, false);
+    } catch (e) {
+      console.warn("GMP init error:", e);
+    }
   }
 
   function ensureMap() {
@@ -1257,21 +1371,10 @@ function confetti() {
     if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
     if (starting) return;
     starting = true;
-    if (window.google && google.maps) {
+
+    loadGMP(apiKey).then(function () {
       initMap();
-      return;
-    }
-    window.__kickstormMapsReady = function () {
-      delete window.__kickstormMapsReady;
-      starting = false;
-      initMap();
-    };
-    var s = document.createElement("script");
-    s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey) +
-      "&libraries=places&callback=__kickstormMapsReady";
-    s.async = true;
-    s.defer = true;
-    document.head.appendChild(s);
+    });
   }
 
   fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
@@ -1349,6 +1452,9 @@ function confetti() {
             gpsMsg.textContent = "\u2713 Titik GPS terkunci (" + lat.toFixed(4) + ", " + lng.toFixed(4) + ")";
             gpsMsg.className = "form-msg ok";
           }
+          if (window.__updateStoreCheckoutMap) {
+            window.__updateStoreCheckoutMap(lat, lng);
+          }
           renderCart();
         },
         function (err) {
@@ -1374,6 +1480,9 @@ function confetti() {
         if (gpsMsg) {
           gpsMsg.textContent = "\u2713 Koordinat terdeteksi (" + coords.lat.toFixed(4) + ", " + coords.lng.toFixed(4) + ")";
           gpsMsg.className = "form-msg ok";
+        }
+        if (window.__updateStoreCheckoutMap) {
+          window.__updateStoreCheckoutMap(coords.lat, coords.lng);
         }
         renderCart();
       } else {

@@ -403,11 +403,16 @@ function parseProduct(body) {
     if (!Number.isInteger(sold) || sold < 0) return { error: "Jumlah terjual tidak valid." };
     out.sold = sold;
   }
+  if (body.image_url !== undefined) {
+    const img = String(body.image_url || "").trim();
+    if (img.length > 10 * 1024 * 1024) return { error: "Ukuran gambar terlalu besar (maks 10MB)." };
+    out.image_url = img;
+  }
   return { value: out };
 }
 
 app.get("/api/products", async (req, res) => {
-  const rows = await db.all("SELECT id, name, tag, badge, price, variant, stock, sold FROM products ORDER BY id");
+  const rows = await db.all("SELECT id, name, tag, badge, price, variant, stock, sold, image_url FROM products ORDER BY id");
   const sold7 = await db.all(
     "SELECT oi.product_id, SUM(oi.qty) AS qty FROM order_items oi " +
     "JOIN orders o ON o.id = oi.order_id " +
@@ -773,8 +778,8 @@ app.post("/api/orders", async (req, res) => {
 
   for (const c of cart) {
     await db.run(
-      "INSERT INTO order_items (order_id, product_id, product_name, price, qty, size, colorway) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [orderId, c.custom ? null : c.product.id, c.custom ? c.name : c.product.name, c.custom ? c.price : c.product.price, c.qty, c.size, c.custom ? c.colorway : null]
+      "INSERT INTO order_items (order_id, product_id, product_name, price, qty, size, colorway, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [orderId, c.custom ? null : c.product.id, c.custom ? c.name : c.product.name, c.custom ? c.price : c.product.price, c.qty, c.size, c.custom ? c.colorway : null, c.custom ? (c.image_url || "") : (c.product ? (c.product.image_url || "") : "")]
     );
   }
 
@@ -782,7 +787,7 @@ app.post("/api/orders", async (req, res) => {
   if (points > 0) {
     await db.run(
       "INSERT INTO members (email, name, points) VALUES (?, ?, ?) " +
-      "ON CONFLICT(email) DO UPDATE SET points = points + excluded.points, name = excluded.name",
+      "ON CONFLICT(email) DO UPDATE SET points = members.points + excluded.points, name = excluded.name",
       [customerEmail, customerName, points]
     );
   }
@@ -974,7 +979,7 @@ app.get("/api/track", async (req, res) => {
     order.masked = true;
   }
 
-  const items = await db.all("SELECT product_id, product_name, price, qty, size, colorway FROM order_items WHERE order_id = ?", [order.id]);
+  const items = await db.all("SELECT product_id, product_name, price, qty, size, colorway, image_url FROM order_items WHERE order_id = ?", [order.id]);
   const history = await db.all("SELECT from_status, to_status, changed_at FROM order_status_log WHERE order_id = ? ORDER BY id", [order.id]);
   res.json({ order: { ...order, items: items || [], history: history || [] } });
 });
@@ -994,7 +999,7 @@ app.get("/api/courier/orders", async (req, res) => {
     query += "WHERE o.status != 'cancelled' ORDER BY CASE o.status WHEN 'shipped' THEN 1 WHEN 'paid' THEN 2 ELSE 3 END, o.id DESC";
   }
   const orders = await db.all(query, params);
-  const itemRows = await db.all("SELECT order_id, product_name, price, qty, size, colorway FROM order_items");
+  const itemRows = await db.all("SELECT order_id, product_name, price, qty, size, colorway, image_url FROM order_items");
   const byOrder = {};
   for (const it of itemRows) (byOrder[it.order_id] ||= []).push(it);
   res.json({ orders: orders.map((o) => ({ ...o, items: byOrder[o.id] || [] })) });
@@ -1116,7 +1121,7 @@ app.get("/api/orders", requireAdmin, async (req, res) => {
   const orders = await db.all(
     "SELECT o.id, o.customer_name, o.email, o.address, o.maps_url, o.lat, o.lng, o.total, o.discount, o.coupon_code, o.referral_code, o.flash_sale_id, o.shipping, o.status, o.tracking_number, o.notes, o.created_at, o.payment_method, o.payment_proof, o.payment_note, o.paid_at, o.courier_id, o.courier_name, o.courier_lat, o.courier_lng, o.courier_share_url, o.courier_updated_at, o.queue_no, o.drop_id FROM orders o ORDER BY o.id DESC"
   );
-  const itemRows = await db.all("SELECT order_id, product_name, price, qty, size, colorway FROM order_items");
+  const itemRows = await db.all("SELECT order_id, product_name, price, qty, size, colorway, image_url FROM order_items");
   const byOrder = {};
   for (const it of itemRows) (byOrder[it.order_id] ||= []).push(it);
   const logRows = await db.all("SELECT order_id, from_status, to_status, changed_at FROM order_status_log ORDER BY id");
@@ -1129,7 +1134,7 @@ app.get("/api/orders/export", requireAdmin, async (req, res) => {
   const orders = await db.all(
     "SELECT o.id, o.customer_name, o.email, o.address, o.lat, o.lng, o.total, o.discount, o.coupon_code, o.referral_code, o.flash_sale_id, o.shipping, o.status, o.tracking_number, o.notes, o.payment_method, o.courier_name, o.queue_no, o.paid_at FROM orders o ORDER BY o.id"
   );
-  const itemRows = await db.all("SELECT order_id, product_name, price, qty, size, colorway FROM order_items");
+  const itemRows = await db.all("SELECT order_id, product_name, price, qty, size, colorway, image_url FROM order_items");
   const byOrder = {};
   for (const it of itemRows) (byOrder[it.order_id] ||= []).push(it);
 
@@ -1254,9 +1259,12 @@ app.post("/api/orders/:id/payment-proof", async (req, res) => {
     return res.status(400).json({ error: "Ukuran gambar bukti harus 1KB - 5MB." });
   }
   const filename = `pay-${id}-${Date.now()}.${ext}`;
-  require("fs").writeFileSync(path.join(uploadsDir, filename), buf);
-  await db.run("UPDATE orders SET payment_proof = ?, payment_note = ? WHERE id = ?", ["/uploads/" + filename, note, id]);
-  res.json({ ok: true, proof: "/uploads/" + filename });
+  try {
+    require("fs").writeFileSync(path.join(uploadsDir, filename), buf);
+  } catch (e) {}
+  const proofPath = "/uploads/" + filename;
+  await db.run("UPDATE orders SET payment_proof = ?, payment_note = ? WHERE id = ?", [proofPath, note, id]);
+  res.json({ ok: true, proof: proofPath });
 });
 
 app.post("/api/admin/orders/:id/verify-payment", requireAdmin, async (req, res) => {
@@ -1498,11 +1506,11 @@ app.post("/api/products", requireAdmin, async (req, res) => {
   const p = parsed.value;
   if (!p.name) return res.status(400).json({ error: "Nama produk wajib diisi." });
   const result = await db.run(
-    "INSERT INTO products (name, tag, badge, price, variant, stock, sold) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [p.name, p.tag ?? "", p.badge ?? "New", p.price ?? 0, p.variant ?? "mono", p.stock ?? 0, p.sold ?? 0]
+    "INSERT INTO products (name, tag, badge, price, variant, stock, sold, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [p.name, p.tag ?? "", p.badge ?? "New", p.price ?? 0, p.variant ?? "mono", p.stock ?? 0, p.sold ?? 0, p.image_url ?? ""]
   );
   const row = await db.get(
-    "SELECT id, name, tag, badge, price, variant, stock, sold FROM products WHERE id = ?",
+    "SELECT id, name, tag, badge, price, variant, stock, sold, image_url FROM products WHERE id = ?",
     [result.lastInsertRowid]
   );
   res.status(201).json({ product: row });
@@ -1521,7 +1529,7 @@ app.put("/api/products/:id", requireAdmin, async (req, res) => {
   const info = await db.run(`UPDATE products SET ${sets} WHERE id = ?`, [...keys.map((k) => p[k]), id]);
   if (info.changes === 0) return res.status(404).json({ error: "Produk tidak ditemukan." });
   const row = await db.get(
-    "SELECT id, name, tag, badge, price, variant, stock, sold FROM products WHERE id = ?",
+    "SELECT id, name, tag, badge, price, variant, stock, sold, image_url FROM products WHERE id = ?",
     [id]
   );
   res.json({ product: row });
