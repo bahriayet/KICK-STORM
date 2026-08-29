@@ -209,18 +209,23 @@
     });
   }
 
-  /* ---- GPS Live Tracking ---- */
+  /* ---- GPS Live Tracking & Simulator ---- */
   var gpsToggle = document.getElementById("gps-toggle");
   var gpsCard = document.getElementById("gps-card");
   var gpsStatusText = document.getElementById("gps-status-text");
+  var simBtn = document.getElementById("btn-sim-toggle");
+  var simInterval = null;
+  var simStep = 0;
 
   function sendLocation(lat, lng) {
-    fetch("/api/courier/sync-location", {
+    fetch("/api/update-lokasi-kurir", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        lat: lat,
-        lng: lng,
+        id_kurir: 1,
+        nama_kurir: courierName,
+        latitude: lat,
+        longitude: lng,
         share_url: savedShareUrl
       })
     }).catch(function () { });
@@ -229,6 +234,12 @@
   if (gpsToggle) {
     gpsToggle.addEventListener("change", function () {
       if (gpsToggle.checked) {
+        if (simInterval) {
+          clearInterval(simInterval);
+          simInterval = null;
+          if (simBtn) simBtn.textContent = "🧪 Simulasi GPS";
+        }
+
         if (!navigator.geolocation) {
           toast("Browser tidak mendukung GPS.", true);
           gpsToggle.checked = false;
@@ -236,14 +247,14 @@
         }
 
         gpsCard.classList.add("active");
-        gpsStatusText.innerHTML = '<span style="color:var(--volt)">🔴 GPS Aktif:</span> Mencari sinyal satelit...';
+        gpsStatusText.innerHTML = '<span style="color:var(--volt)">🔴 GPS HP Aktif:</span> Mencari sinyal satelit...';
 
         watchId = navigator.geolocation.watchPosition(
           function (pos) {
             var lat = pos.coords.latitude;
             var lng = pos.coords.longitude;
             var acc = Math.round(pos.coords.accuracy || 0);
-            gpsStatusText.innerHTML = '<span style="color:var(--volt)">🔴 GPS Aktif &amp; Siaran:</span> Posisi ' + lat.toFixed(5) + ', ' + lng.toFixed(5) + ' (Akurasi \u00b1' + acc + 'm)';
+            gpsStatusText.innerHTML = '<span style="color:var(--volt)">🔴 Live GPS Aktif (Neon DB):</span> Posisi ' + lat.toFixed(5) + ', ' + lng.toFixed(5) + ' (Akurasi \u00b1' + acc + 'm)';
             sendLocation(lat, lng);
           },
           function (err) {
@@ -264,6 +275,81 @@
     });
   }
 
+  // Simulator Toggle
+  if (simBtn) {
+    simBtn.addEventListener("click", function () {
+      if (simInterval) {
+        clearInterval(simInterval);
+        simInterval = null;
+        simBtn.textContent = "🧪 Simulasi GPS";
+        simBtn.style.background = "rgba(214,255,63,0.12)";
+        if (gpsCard) gpsCard.classList.remove("active");
+        if (gpsStatusText) gpsStatusText.textContent = "Simulasi GPS dihentikan.";
+        toast("Simulasi GPS selesai.");
+        return;
+      }
+
+      if (gpsToggle && gpsToggle.checked) {
+        gpsToggle.checked = false;
+        if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+      }
+
+      var startLat = -6.2200;
+      var startLng = 106.8400;
+      var targetLat = -6.2088;
+      var targetLng = 106.8456;
+
+      // Find first shipped order destination if available
+      var activeOrder = orders.find(function (o) { return o.status === "shipped" && o.lat && o.lng; }) ||
+                        orders.find(function (o) { return o.lat && o.lng; });
+      if (activeOrder) {
+        targetLat = Number(activeOrder.lat);
+        targetLng = Number(activeOrder.lng);
+        startLat = targetLat - 0.015;
+        startLng = targetLng - 0.015;
+      }
+
+      var totalSteps = 20;
+      simStep = 0;
+      simBtn.textContent = "⏹️ Stop Simulasi";
+      simBtn.style.background = "var(--volt)";
+      simBtn.style.color = "#0A0A0C";
+      if (gpsCard) gpsCard.classList.add("active");
+      toast("🚀 Simulasi perjalanan kurir dimulai! Cek halaman Lacak.");
+
+      simInterval = setInterval(function () {
+        simStep++;
+        var progress = Math.min(1, simStep / totalSteps);
+        var currentLat = startLat + (targetLat - startLat) * progress;
+        var currentLng = startLng + (targetLng - startLng) * progress;
+
+        // Add slight realistic jitter
+        var jitterLat = (Math.random() - 0.5) * 0.0003;
+        var jitterLng = (Math.random() - 0.5) * 0.0003;
+        var curLat = currentLat + (progress < 1 ? jitterLat : 0);
+        var curLng = currentLng + (progress < 1 ? jitterLng : 0);
+
+        if (gpsStatusText) {
+          gpsStatusText.innerHTML = '<span style="color:var(--volt)">🧪 SIMULASI BERJALAN:</span> Mengirim koordinat ke Neon.tech: ' + curLat.toFixed(5) + ', ' + curLng.toFixed(5) + ' (Progres ' + Math.round(progress * 100) + '%)';
+        }
+
+        sendLocation(curLat, curLng);
+
+        if (progress >= 1) {
+          clearInterval(simInterval);
+          simInterval = null;
+          simBtn.textContent = "🧪 Simulasi GPS";
+          simBtn.style.background = "rgba(214,255,63,0.12)";
+          simBtn.style.color = "var(--volt)";
+          if (gpsStatusText) {
+            gpsStatusText.innerHTML = '<span style="color:var(--volt)">✅ SIMULASI SELESAI:</span> Kurir telah tiba di titik tujuan pelanggan!';
+          }
+          toast("✓ Kurir tiba di titik tujuan!");
+        }
+      }, 3000);
+    });
+  }
+
   /* ---- Save Google Maps Share URL ---- */
   var shareInput = document.getElementById("courier-share-url-input");
   var saveShareBtn = document.getElementById("btn-save-share-url");
@@ -275,13 +361,13 @@
         var val = shareInput.value.trim();
         savedShareUrl = val;
         localStorage.setItem("ks_courier_share_url", val);
-        fetch("/api/courier/sync-location", {
+        fetch("/api/update-lokasi-kurir", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ share_url: val })
         })
         .then(function () {
-          toast("✓ Link Google Maps Radar tersimpan!");
+          toast("✓ Link Google Maps tersimpan di database Neon!");
         })
         .catch(function () {
           toast("✓ Link tersimpan di perangkat lokal.");

@@ -232,6 +232,12 @@ function estShipping() {
   var dist = 0;
   var c = pickedCoords();
   if (c && storeCfg && storeCfg.lat) dist = haversineKm(storeCfg.lat, storeCfg.lng, c.lat, c.lng);
+
+  // If distance exceeds local delivery radius (e.g. 1055 km > 25 km), apply out-of-area national rate
+  if (dist > 0 && shipCfg.maxKm > 0 && dist > shipCfg.maxKm) {
+    return shipCfg.outOfAreaCost || 50000;
+  }
+
   var courier = selectedCourier();
   var tiers = (courier && courier.tiers && courier.tiers.length) ? courier.tiers : (shipCfg.tiers || []);
   var tier = tiers.find(function (t) { return dist <= t.max; }) || tiers[tiers.length - 1];
@@ -787,7 +793,10 @@ function renderCart() {
       "<span>\u2212" + rupiah(refD) + "</span></div>";
   }
   if (cart.length > 0 && shipCfg) {
-    totals += '<div class="cart-line"><span>Ongkir' + (pickedCoords() ? "" : " (estimasi)") + "</span>" +
+    var d = distFromStore();
+    var isFar = d !== null && shipCfg.maxKm > 0 && d > shipCfg.maxKm;
+    var shipLabel = "Ongkir" + (pickedCoords() ? (isFar ? " (Ekspedisi Luar Jangkauan)" : "") : " (estimasi)");
+    totals += '<div class="cart-line"><span>' + shipLabel + "</span>" +
       "<span>" + (shipping === 0 && shipCfg.freeMin > 0 ? "GRATIS" : rupiah(shipping)) + "</span></div>";
   }
   if (cart.length > 0 && selectedCourier()) {
@@ -1161,256 +1170,272 @@ function confetti() {
   }).catch(function () { });
 })();
 
-/* ---- Google Maps: pilih alamat di peta (GMP MCP Standards) ---- */
+/* ---- Leaflet + OpenStreetMap: Pilih Lokasi Pengantaran (Pinpoint Peta) ---- */
 (function () {
-  var apiKey = "";
   var map = null;
   var marker = null;
-  var autocomplete = null;
-  var geocoder = null;
-  var initDone = false;
-  var starting = false;
-  var GEO = { lat: -6.2, lng: 106.816666 };
+  var storeMarker = null;
+  var defaultCenter = [-6.2087634, 106.845599]; // Default Jakarta KICKSTORM Hub
 
-  // Dynamic Library Loader matching GMP standard
-  function loadGMP(key) {
-    if (window.google && window.google.maps && window.google.maps.importLibrary) return Promise.resolve();
-    return new Promise(function (resolve) {
-      (function (g) {
-        var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
-        b[c] = b[c] || {};
-        var d = b[c].maps = b[c].maps || {}, r = new Set(), e = new URLSearchParams(), u = function () {
-          return h || (h = new Promise(function (f, n) {
-            a = m.createElement("script");
-            e.set("libraries", Array.from(r) + "");
-            for (k in g) e.set(k.replace(/[A-Z]/g, function (t) { return "_" + t[0].toLowerCase(); }), g[k]);
-            e.set("callback", c + ".maps." + q);
-            a.src = "https://maps." + c + "apis.com/maps/api/js?" + e;
-            d[q] = f;
-            a.onerror = function () { h = n(Error(p + " could not load.")); };
-            a.nonce = (m.querySelector("script[nonce]") && m.querySelector("script[nonce]").nonce) || "";
-            m.head.append(a);
-          }));
-        };
-        d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = function (f) {
-          var n = Array.prototype.slice.call(arguments, 1);
-          return r.add(f) && u().then(function () { return d[l].apply(d, [f].concat(n)); });
-        };
-      })({
-        key: key,
-        v: "weekly",
-        internalUsageAttributionIds: "gmp_mcp_codeassist_v0.1_github"
-      });
-      resolve();
-    });
+  function getStorePos() {
+    if (shipCfg && shipCfg.store && shipCfg.store.lat && shipCfg.store.lng) {
+      return [Number(shipCfg.store.lat), Number(shipCfg.store.lng)];
+    }
+    return defaultCenter;
   }
 
-  function showHint(txt) {
-    var h = document.getElementById("map-hint");
+  function showHint(txt, isErr) {
+    var h = document.getElementById("gps-msg");
     if (!h) return;
     h.textContent = txt || "";
-    h.className = txt ? "form-msg ok" : "form-msg";
+    h.className = isErr ? "form-msg err" : (txt ? "form-msg ok" : "form-msg");
   }
 
-  function setLocation(lat, lng, address) {
-    document.getElementById("order-lat").value = Number(lat).toFixed(6);
-    document.getElementById("order-lng").value = Number(lng).toFixed(6);
-    if (address) {
-      document.getElementById("order-address").value = address;
-      var d = distFromStore();
-      var out = "\u2713 Lokasi dipilih \u2014 " + Number(lat).toFixed(5) + ", " + Number(lng).toFixed(5);
-      if (d !== null && shipCfg && shipCfg.maxKm > 0) {
-        out += d > shipCfg.maxKm
-          ? " \u26a0 Di luar radius kirim (" + Math.round(d) + " km > maks " + shipCfg.maxKm + " km)!"
-          : " \u2014 " + Math.round(d) + " km dari toko";
-      }
-      showHint(out);
+  function setLocation(lat, lng, address, byUser) {
+    var latNum = Number(lat);
+    var lngNum = Number(lng);
+    document.getElementById("order-lat").value = latNum.toFixed(6);
+    document.getElementById("order-lng").value = lngNum.toFixed(6);
+
+    var mapsInput = document.getElementById("order-maps-url");
+    if (mapsInput) {
+      mapsInput.value = "https://www.google.com/maps?q=" + latNum.toFixed(6) + "," + lngNum.toFixed(6);
     }
+
+    if (address && document.getElementById("order-address")) {
+      var addrInput = document.getElementById("order-address");
+      if (!addrInput.value.trim() || byUser) {
+        addrInput.value = address;
+      }
+    }
+
+    // Update coordinate badge
+    var coordText = document.getElementById("map-coord-text");
+    if (coordText) {
+      coordText.textContent = "📍 " + latNum.toFixed(4) + ", " + lngNum.toFixed(4);
+    }
+
+    // Distance Calculation
+    var d = distFromStore();
+    var distText = document.getElementById("map-dist-text");
+    if (distText) {
+      if (d !== null) {
+        distText.textContent = Math.round(d * 10) / 10 + " km dari toko";
+      } else {
+        distText.textContent = "";
+      }
+    }
+
+    if (d !== null && shipCfg && shipCfg.maxKm > 0 && d > shipCfg.maxKm) {
+      var outCost = shipCfg.outOfAreaCost || 50000;
+      showHint("📦 Lokasi di luar jangkauan kurir lokal (" + Math.round(d) + " km > " + shipCfg.maxKm + " km) — Dialihkan ke Ekspedisi Luar Kota (" + rupiah(outCost) + ")", false);
+    } else {
+      showHint("✓ Titik lokasi tersimpan (" + latNum.toFixed(4) + ", " + lngNum.toFixed(4) + ")", false);
+    }
+
     updateCodUI();
     renderCart();
   }
 
   function reverseGeocode(lat, lng) {
-    if (!geocoder) {
-      if (window.google && google.maps && google.maps.Geocoder) {
-        geocoder = new google.maps.Geocoder();
-      }
-    }
-    if (!geocoder) {
-      setLocation(lat, lng, "");
-      return;
-    }
-    geocoder.geocode({ location: { lat: Number(lat), lng: Number(lng) } }, function (results, status) {
-      if (status === "OK" && results && results[0]) {
-        setLocation(lat, lng, results[0].formatted_address);
-      } else {
-        setLocation(lat, lng, "");
-      }
-    });
+    var url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&zoom=18&addressdetails=1";
+    fetch(url, { headers: { "Accept-Language": "id,en" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.display_name) {
+          setLocation(lat, lng, data.display_name, false);
+        } else {
+          setLocation(lat, lng, "", false);
+        }
+      })
+      .catch(function () {
+        setLocation(lat, lng, "", false);
+      });
   }
 
-  function placeMarker(lat, lng, zoomTo) {
-    var pos = { lat: Number(lat), lng: Number(lng) };
+  function placeMarker(lat, lng, zoomTo, doGeocode) {
+    var latNum = Number(lat);
+    var lngNum = Number(lng);
+
+    if (!window.L || !map) return;
+
+    var customIcon = L.divIcon({
+      className: "custom-leaflet-pin",
+      html: '<div class="pin-marker-wrap"><span class="pin-pulse"></span><div class="pin-icon" title="Geser pin untuk tepatkan titik rumah">📍</div></div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+
     if (!marker) {
-      if (window.google && google.maps && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-        marker = new google.maps.marker.AdvancedMarkerElement({
-          position: pos,
-          map: map,
-          gmpDraggable: true,
-          title: "Geser pin untuk tepatkan titik pengiriman"
-        });
-        marker.addListener("dragend", function () {
-          var p = marker.position;
-          var rlat = typeof p.lat === "function" ? p.lat() : p.lat;
-          var rlng = typeof p.lng === "function" ? p.lng() : p.lng;
-          reverseGeocode(rlat, rlng);
-        });
-      } else if (window.google && google.maps && google.maps.Marker) {
-        marker = new google.maps.Marker({
-          position: pos,
-          map: map,
-          draggable: true,
-          title: "Geser pin untuk tepatkan titik pengiriman"
-        });
-        marker.addListener("dragend", function () {
-          var p = marker.getPosition();
-          reverseGeocode(p.lat(), p.lng());
-        });
-      }
+      marker = L.marker([latNum, lngNum], {
+        icon: customIcon,
+        draggable: true,
+        title: "Titik Pengantaran (Geser pin untuk tepatkan)"
+      }).addTo(map);
+
+      marker.bindPopup("<b style='color:var(--volt)'>Titik Pengantaran</b><br>Geser pin untuk tepatkan titik rumah.").openPopup();
+
+      marker.on("dragend", function () {
+        var pos = marker.getLatLng();
+        reverseGeocode(pos.lat, pos.lng);
+      });
     } else {
-      if (marker.position !== undefined) {
-        marker.position = pos;
-      } else if (marker.setPosition) {
-        marker.setPosition(pos);
+      marker.setLatLng([latNum, lngNum]);
+    }
+
+    if (map) {
+      if (zoomTo) {
+        map.setView([latNum, lngNum], 16);
+      } else {
+        map.panTo([latNum, lngNum]);
       }
     }
-    if (map) {
-      if (zoomTo) map.setZoom(16);
-      map.panTo(pos);
+
+    if (doGeocode) {
+      reverseGeocode(latNum, lngNum);
+    } else {
+      setLocation(latNum, lngNum, "", false);
     }
-    reverseGeocode(lat, lng);
   }
 
   window.__updateStoreCheckoutMap = function (lat, lng) {
     if (map) {
-      placeMarker(lat, lng, true);
+      placeMarker(lat, lng, true, false);
     }
   };
 
-  async function initMap() {
-    if (initDone || !window.google || !google.maps || !google.maps.importLibrary) return;
-    initDone = true;
+  function initLeafletMap() {
+    if (!window.L) return;
     var el = document.getElementById("order-map");
-    if (!el) return;
+    if (!el || map) return;
 
-    try {
-      var mapsLib = await google.maps.importLibrary("maps");
-      var markerLib = await google.maps.importLibrary("marker").catch(function () { return null; });
-      var placesLib = await google.maps.importLibrary("places").catch(function () { return null; });
-      var geocodingLib = await google.maps.importLibrary("geocoding").catch(function () { return null; });
+    var storePos = getStorePos();
+    var defaultLat = storePos[0];
+    var defaultLng = storePos[1];
 
-      if (geocodingLib && geocodingLib.Geocoder) {
-        geocoder = new geocodingLib.Geocoder();
-      } else if (google.maps.Geocoder) {
-        geocoder = new google.maps.Geocoder();
-      }
+    map = L.map("order-map", {
+      zoomControl: true,
+      attributionControl: false
+    }).setView([defaultLat, defaultLng], 13);
 
-      var defaultCenter = (shipCfg && shipCfg.store && shipCfg.store.lat)
-        ? { lat: Number(shipCfg.store.lat), lng: Number(shipCfg.store.lng) }
-        : GEO;
+    // OpenStreetMap Tile Layer
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap"
+    }).addTo(map);
 
-      map = new mapsLib.Map(el, {
-        center: defaultCenter,
-        zoom: 13,
-        mapId: "DEMO_MAP_ID",
-        mapTypeControl: false,
-        fullscreenControl: false,
-        streetViewControl: false,
-        gestureHandling: "greedy"
-      });
+    // Add Store Marker
+    var storeIcon = L.divIcon({
+      className: "custom-leaflet-pin",
+      html: '<div class="pin-marker-wrap"><div class="pin-store" title="Toko KICKSTORM Hub">🏬</div></div>',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+    storeMarker = L.marker([defaultLat, defaultLng], {
+      icon: storeIcon,
+      interactive: true
+    }).addTo(map).bindPopup("<b>🏬 KICKSTORM Hub Jakarta</b><br>Pusat Pengiriman");
 
-      map.addListener("click", function (e) {
-        if (e.latLng) {
-          placeMarker(e.latLng.lat(), e.latLng.lng(), false);
-        }
-      });
+    // Click to place marker
+    map.on("click", function (e) {
+      placeMarker(e.latlng.lat, e.latlng.lng, false, true);
+    });
 
-      // Places Autocomplete
-      var searchInput = document.getElementById("order-address-search");
-      if (searchInput && placesLib && placesLib.Autocomplete) {
-        autocomplete = new placesLib.Autocomplete(searchInput, {
-          types: ["geocode", "establishment"],
-          fields: ["formatted_address", "geometry", "name"],
-          componentRestrictions: { country: "ID" }
-        });
-        autocomplete.addListener("place_changed", function () {
-          var p = autocomplete.getPlace();
-          if (!p || !p.geometry || !p.geometry.location) {
-            showHint("Alamat tidak ditemukan, silakan geser pin langsung di peta.");
-            return;
-          }
-          var loc = p.geometry.location;
-          var locLat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
-          var locLng = typeof loc.lng === "function" ? loc.lng() : loc.lng;
-          map.setCenter({ lat: locLat, lng: locLng });
-          if (p.geometry.viewport) {
-            map.fitBounds(p.geometry.viewport);
-          } else {
-            map.setZoom(16);
-          }
-          placeMarker(locLat, locLng, false);
-        });
-        searchInput.addEventListener("keydown", function (e) {
-          if (e.key === "Enter") e.preventDefault();
-        });
-      }
-
-      // Initial placement
-      placeMarker(defaultCenter.lat, defaultCenter.lng, false);
-    } catch (e) {
-      console.warn("GMP init error:", e);
+    // Check if initial coordinates already exist in form
+    var initLat = document.getElementById("order-lat").value.trim();
+    var initLng = document.getElementById("order-lng").value.trim();
+    if (initLat && initLng) {
+      placeMarker(Number(initLat), Number(initLng), true, false);
+    } else {
+      placeMarker(defaultLat - 0.008, defaultLng + 0.008, false, false);
     }
+
+    setTimeout(function () {
+      if (map) map.invalidateSize();
+    }, 400);
   }
 
   function ensureMap() {
-    if (!apiKey || initDone) return;
-    var el = document.getElementById("order-map");
-    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
-    if (starting) return;
-    starting = true;
+    if (!map) {
+      initLeafletMap();
+    } else {
+      setTimeout(function () {
+        if (map) map.invalidateSize();
+      }, 200);
+    }
+  }
 
-    loadGMP(apiKey).then(function () {
-      initMap();
+  /* ---- Search Address Button & Enter key ---- */
+  function searchLocation() {
+    var searchInput = document.getElementById("order-address-search");
+    if (!searchInput) return;
+    var query = searchInput.value.trim();
+    if (!query) return;
+
+    showHint("Mencari lokasi...", false);
+    var url = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query) + "&countrycodes=id&limit=1";
+    fetch(url, { headers: { "Accept-Language": "id,en" } })
+      .then(function (r) { return r.json(); })
+      .then(function (results) {
+        if (results && results.length > 0) {
+          var res = results[0];
+          var lat = parseFloat(res.lat);
+          var lon = parseFloat(res.lon);
+          ensureMap();
+          placeMarker(lat, lon, true, false);
+          setLocation(lat, lon, res.display_name, true);
+          showHint("✓ Lokasi ditemukan: " + res.display_name.slice(0, 50) + "...", false);
+        } else {
+          showHint("Lokasi tidak ditemukan. Geser pin merah langsung di peta.", true);
+        }
+      })
+      .catch(function () {
+        showHint("Gagal mencari alamat. Geser pin langsung di peta.", true);
+      });
+  }
+
+  var searchBtn = document.getElementById("btn-search-loc");
+  if (searchBtn) {
+    searchBtn.addEventListener("click", searchLocation);
+  }
+  var searchInput = document.getElementById("order-address-search");
+  if (searchInput) {
+    searchInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        searchLocation();
+      }
     });
   }
 
-  fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
-    apiKey = cfg.googleMapsApiKey || "";
-    if (!apiKey) return;
-    document.getElementById("map-picker").hidden = false;
-    if (document.getElementById("cart-drawer").classList.contains("open")) ensureMap();
-  }).catch(function () { });
-
-  /* ---- Helper Ekstrak Koordinat dari Link Google Maps ---- */
-  function extractCoordsFromMapsUrl(url) {
-    if (!url || typeof url !== "string") return null;
-    var str = url.trim();
-    var atMatch = str.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (atMatch) {
-      var lat = parseFloat(atMatch[1]), lng = parseFloat(atMatch[2]);
-      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat: lat, lng: lng };
-    }
-    var qMatch = str.match(/[?&](?:q|ll|destination|center|daddr)=(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (qMatch) {
-      var qlat = parseFloat(qMatch[1]), qlng = parseFloat(qMatch[2]);
-      if (Number.isFinite(qlat) && Number.isFinite(qlng) && Math.abs(qlat) <= 90 && Math.abs(qlng) <= 180) return { lat: qlat, lng: qlng };
-    }
-    var rawMatch = str.match(/^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/);
-    if (rawMatch) {
-      var rlat = parseFloat(rawMatch[1]), rlng = parseFloat(rawMatch[2]);
-      if (Number.isFinite(rlat) && Number.isFinite(rlng) && Math.abs(rlat) <= 90 && Math.abs(rlng) <= 180) return { lat: rlat, lng: rlng };
-    }
-    return null;
+  /* ---- Tombol GPS Saya (HTML5 Geolocation) ---- */
+  var gpsBtn = document.getElementById("btn-get-gps");
+  if (gpsBtn) {
+    gpsBtn.addEventListener("click", function () {
+      if (!navigator.geolocation) {
+        showHint("Browser tidak mendukung GPS.", true);
+        return;
+      }
+      gpsBtn.disabled = true;
+      showHint("🛰️ Mendeteksi posisi GPS HP kamu...", false);
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          gpsBtn.disabled = false;
+          var lat = pos.coords.latitude;
+          var lng = pos.coords.longitude;
+          ensureMap();
+          placeMarker(lat, lng, true, true);
+          showHint("✓ Titik GPS terkunci (" + lat.toFixed(4) + ", " + lng.toFixed(4) + ")", false);
+        },
+        function (err) {
+          gpsBtn.disabled = false;
+          var errText = "Gagal mengambil lokasi GPS. Izinkan izin lokasi di browsermu atau geser pin peta manual.";
+          if (err.code === 1) errText = "Izin lokasi GPS ditolak. Silakan geser pin langsung di peta.";
+          showHint(errText, true);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
   }
 
   /* ---- Modal Panduan Google Maps ---- */
@@ -1435,76 +1460,45 @@ function confetti() {
     if (overlay) overlay.addEventListener("click", close);
   })();
 
-  /* ---- Tombol GPS Saya (HTML5 Geolocation Bawaan) ---- */
-  var gpsBtn = document.getElementById("btn-get-gps");
-  var gpsMsg = document.getElementById("gps-msg");
+  /* ---- Parse Maps URL Manual Input ---- */
   var mapsInput = document.getElementById("order-maps-url");
-  if (gpsBtn && mapsInput) {
-    gpsBtn.addEventListener("click", function () {
-      if (!navigator.geolocation) {
-        if (gpsMsg) { gpsMsg.textContent = "Browser kamu tidak mendukung deteksi lokasi."; gpsMsg.className = "form-msg err"; }
-        return;
-      }
-      gpsBtn.disabled = true;
-      if (gpsMsg) { gpsMsg.textContent = "Mendeteksi posisi GPS kamu..."; gpsMsg.className = "form-msg"; }
-      navigator.geolocation.getCurrentPosition(
-        function (pos) {
-          gpsBtn.disabled = false;
-          var lat = pos.coords.latitude;
-          var lng = pos.coords.longitude;
-          document.getElementById("order-lat").value = lat;
-          document.getElementById("order-lng").value = lng;
-          mapsInput.value = "https://www.google.com/maps?q=" + lat + "," + lng;
-          if (gpsMsg) {
-            gpsMsg.textContent = "\u2713 Titik GPS terkunci (" + lat.toFixed(4) + ", " + lng.toFixed(4) + ")";
-            gpsMsg.className = "form-msg ok";
-          }
-          if (window.__updateStoreCheckoutMap) {
-            window.__updateStoreCheckoutMap(lat, lng);
-          }
-          renderCart();
-        },
-        function (err) {
-          gpsBtn.disabled = false;
-          var errText = "Gagal mengambil lokasi. Izinkan akses GPS di browsermu.";
-          if (err.code === 1) errText = "Akses GPS ditolak. Silakan tempel link Google Maps manual.";
-          if (gpsMsg) { gpsMsg.textContent = errText; gpsMsg.className = "form-msg err"; }
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    });
-
+  if (mapsInput) {
     mapsInput.addEventListener("input", function () {
       var val = mapsInput.value.trim();
-      if (!val) {
-        if (gpsMsg) gpsMsg.textContent = "";
-        return;
-      }
+      if (!val) return;
       var coords = extractCoordsFromMapsUrl(val);
       if (coords) {
-        document.getElementById("order-lat").value = coords.lat;
-        document.getElementById("order-lng").value = coords.lng;
-        if (gpsMsg) {
-          gpsMsg.textContent = "\u2713 Koordinat terdeteksi (" + coords.lat.toFixed(4) + ", " + coords.lng.toFixed(4) + ")";
-          gpsMsg.className = "form-msg ok";
-        }
-        if (window.__updateStoreCheckoutMap) {
-          window.__updateStoreCheckoutMap(coords.lat, coords.lng);
-        }
-        renderCart();
-      } else {
-        if (gpsMsg) {
-          gpsMsg.textContent = "Link tersimpan (akan dibuka kurir langsung via Google Maps)";
-          gpsMsg.className = "form-msg";
-        }
+        ensureMap();
+        placeMarker(coords.lat, coords.lng, true, true);
       }
     });
+  }
+
+  function extractCoordsFromMapsUrl(url) {
+    if (!url || typeof url !== "string") return null;
+    var str = url.trim();
+    var atMatch = str.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) {
+      var lat = parseFloat(atMatch[1]), lng = parseFloat(atMatch[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat: lat, lng: lng };
+    }
+    var qMatch = str.match(/[?&](?:q|ll|destination|center|daddr)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (qMatch) {
+      var qlat = parseFloat(qMatch[1]), qlng = parseFloat(qMatch[2]);
+      if (Number.isFinite(qlat) && Number.isFinite(qlng) && Math.abs(qlat) <= 90 && Math.abs(qlng) <= 180) return { lat: qlat, lng: qlng };
+    }
+    var rawMatch = str.match(/^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/);
+    if (rawMatch) {
+      var rlat = parseFloat(rawMatch[1]), rlng = parseFloat(rawMatch[2]);
+      if (Number.isFinite(rlat) && Number.isFinite(rlng) && Math.abs(rlat) <= 90 && Math.abs(rlng) <= 180) return { lat: rlat, lng: rlng };
+    }
+    return null;
   }
 
   var openCartOrig = window.openCart;
   window.openCart = function () {
     openCartOrig();
-    ensureMap();
+    setTimeout(ensureMap, 250);
   };
 })();
 
@@ -1513,18 +1507,17 @@ document.getElementById("checkout-form").addEventListener("submit", function (e)
   var msg = document.getElementById("order-msg");
   var btn = document.getElementById("checkout-btn");
   var mapActive = !document.getElementById("map-picker").hidden;
+  if (cart.length === 0) {
+    msg.className = "form-msg";
+    msg.textContent = "Keranjang kamu masih kosong.";
+    return;
+  }
   var lat = document.getElementById("order-lat").value.trim();
   var lng = document.getElementById("order-lng").value.trim();
   var mapsUrl = document.getElementById("order-maps-url") ? document.getElementById("order-maps-url").value.trim() : "";
   if (mapActive && (!lat || !lng)) {
     msg.className = "form-msg";
     msg.textContent = "Pilih lokasi pengiriman di peta (klik peta, geser pin, atau cari alamat).";
-    return;
-  }
-  var d = distFromStore();
-  if (d !== null && shipCfg && shipCfg.maxKm > 0 && d > shipCfg.maxKm) {
-    msg.className = "form-msg";
-    msg.textContent = "Lokasi di luar radius pengiriman (" + Math.round(d) + " km > maks " + shipCfg.maxKm + " km). Pilih lokasi lain.";
     return;
   }
   var payload = {
@@ -1749,23 +1742,34 @@ function executeTrack(rawOrderId, rawEmail) {
       }).join("");
 
       var payBox = "";
-      if (o.status === "awaiting_payment") {
+      if (o.payment_proof) {
+        payBox = '<div class="pay-upload pay-uploaded-box">' +
+          '<p class="pay-title" style="color:var(--volt)">✅ Bukti Transfer Sudah Diunggah</p>' +
+          '<a href="' + escapeHtml(o.payment_proof) + '" target="_blank" rel="noopener">' +
+            '<img class="pay-preview" src="' + escapeHtml(o.payment_proof) + '" alt="Bukti Transfer" style="display:block;max-width:220px;border-radius:var(--radius-sm);margin:8px 0;border:1px solid var(--stroke-2)">' +
+          '</a>' +
+          (o.payment_note ? '<p class="muted" style="font-size:.8rem;margin-bottom:4px">Catatan: ' + escapeHtml(o.payment_note) + '</p>' : '') +
+          '<p class="muted" style="font-size:.78rem">Admin sedang memverifikasi pembayaran pesananmu.</p>' +
+        '</div>';
+      } else if (o.status === "awaiting_payment" || (o.status === "pending" && o.payment_method !== "cod")) {
         payBox = '<div class="pay-upload">' +
-          '<p class="pay-title">\u26a1 Upload bukti transfer</p>' +
-          '<p class="muted" style="font-size:.78rem;margin-bottom:8px">Transfer total pesanan lalu unggah buktinya di sini. Admin akan memverifikasi.</p>' +
-          '<input class="field" type="file" id="pay-file" accept="image/png,image/jpeg,image/webp" aria-label="Pilih gambar bukti transfer">' +
-          '<img class="pay-preview" id="pay-preview" alt="Pratinjau bukti" hidden>' +
-          '<textarea class="field" id="pay-note" rows="2" placeholder="Catatan transfer (opsional): nama bank, jam transfer..." maxlength="200"></textarea>' +
-          '<button class="btn btn-primary btn-sm" type="button" id="pay-send">Kirim Bukti</button>' +
-          '<p class="form-msg" id="pay-msg" aria-live="polite"></p>' +
-          "</div>";
+          '<p class="pay-title">\u26a1 Upload Bukti Transfer Bank</p>' +
+          '<p class="muted" style="font-size:.78rem;margin-bottom:8px">Silakan transfer total pesanan <strong>' + rupiah(o.total) + '</strong> lalu unggah struk / foto bukti transfer di bawah:</p>' +
+          '<div class="pay-file-wrap" style="margin-bottom:8px">' +
+            '<input class="field" type="file" id="pay-file" accept="image/*" aria-label="Pilih gambar bukti transfer">' +
+          '</div>' +
+          '<img class="pay-preview" id="pay-preview" alt="Pratinjau bukti transfer" hidden style="max-width:220px;border-radius:8px;margin-bottom:8px;border:1px solid var(--stroke-2);display:none">' +
+          '<textarea class="field" id="pay-note" rows="2" placeholder="Catatan transfer (opsional): Bank pengirim, nama pemilik rekening, jam transfer..." maxlength="200"></textarea>' +
+          '<button class="btn btn-primary btn-sm" type="button" id="pay-send" style="margin-top:8px;width:100%">🚀 Kirim Bukti Transfer</button>' +
+          '<p class="form-msg" id="pay-msg" aria-live="polite" style="margin-top:6px"></p>' +
+        '</div>';
       }
 
       var destinationLink = "";
       if (o.maps_url) {
-        destinationLink = '<a class="btn btn-ghost btn-sm" href="' + escapeHtml(o.maps_url) + '" target="_blank" rel="noopener" style="margin-top:8px;display:inline-block">📍 Titik Rumah di Google Maps ↗</a>';
+        destinationLink = '<a class="btn btn-ghost btn-sm" href="' + escapeHtml(o.maps_url) + '" target="_blank" rel="noopener" style="margin-top:8px;display:inline-block">📍 Buka Titik Rumah di Google Maps ↗</a>';
       } else if (o.lat && o.lng) {
-        destinationLink = '<a class="btn btn-ghost btn-sm" href="https://www.google.com/maps?q=' + o.lat + ',' + o.lng + '" target="_blank" rel="noopener" style="margin-top:8px;display:inline-block">📍 Titik Rumah di Google Maps ↗</a>';
+        destinationLink = '<a class="btn btn-ghost btn-sm" href="https://www.google.com/maps?q=' + o.lat + ',' + o.lng + '" target="_blank" rel="noopener" style="margin-top:8px;display:inline-block">📍 Buka Titik Rumah di Google Maps ↗</a>';
       }
 
       var liveCourierBox = "";
@@ -1774,21 +1778,42 @@ function executeTrack(rawOrderId, rawEmail) {
           liveCourierBox = '<div class="track-courier-box">' +
             '<div class="tc-head">' +
               '<span class="tc-badge">Kurir Menuju Lokasi</span>' +
-              '<span class="tc-live"><span class="dot"></span> Radar Live</span>' +
+              '<span class="tc-live"><span class="dot"></span> Radar Live (Neon.tech)</span>' +
             '</div>' +
             '<p style="font-size:.82rem;margin-bottom:8px">Kurir <strong>' + escapeHtml(o.courier_name || "KICKSTORM Express") + '</strong> sedang di perjalanan membawa paketmu.</p>' +
             '<a class="btn btn-primary btn-sm" href="' + escapeHtml(o.courier_share_url) + '" target="_blank" rel="noopener">📡 Pantau Posisi Kurir di Google Maps ↗</a>' +
           '</div>';
-        } else if (o.courier_lat && o.courier_lng) {
-          liveCourierBox = '<div class="track-courier-box">' +
-            '<div class="tc-head">' +
-              '<span class="tc-badge">Kurir Aktif</span>' +
-              '<span class="tc-live"><span class="dot"></span> Live GPS</span>' +
-            '</div>' +
-            '<p style="font-size:.82rem;margin-bottom:8px">Kurir <strong>' + escapeHtml(o.courier_name || "KICKSTORM Express") + '</strong> aktif di koordinat pengantaran.</p>' +
-            '<a class="btn btn-primary btn-sm" href="https://www.google.com/maps?q=' + o.courier_lat + ',' + o.courier_lng + '" target="_blank" rel="noopener">📍 Buka Lokasi Kurir di Google Maps ↗</a>' +
-          '</div>';
         }
+      }
+
+      // --- Leaflet Live Interactive Map Container ---
+      var mapContainerId = "live-tracking-map-" + o.id;
+      var liveMapHtml = "";
+      if (o.lat && o.lng) {
+        var isShipped = o.status === "shipped";
+        var mapTitle = isShipped ? "🛵 Live Tracking Pengantaran Kurir (Neon.tech)" : "📍 Titik Tujuan Pengantaran Sepatu";
+        var pulseColor = isShipped ? "var(--volt)" : "#38BDF8";
+
+        liveMapHtml = '<div class="live-track-leaflet-wrap">' +
+          '<div class="lt-header">' +
+            '<div class="lt-title">' +
+              '<span class="live-pulse" style="background:' + pulseColor + '"></span>' +
+              '<strong>' + mapTitle + '</strong>' +
+            '</div>' +
+            '<div class="lt-metrics" id="lt-metrics-' + o.id + '">' +
+              (isShipped ? '<span class="lt-metric-pill">⚡ Terhubung ke Satelit GPS</span>' : '<span class="lt-metric-pill" style="border-color:rgba(56,189,248,0.4);color:#38BDF8">🏠 Alamat Pembeli</span>') +
+            '</div>' +
+          '</div>' +
+          '<div id="' + mapContainerId + '" class="live-map-canvas"></div>' +
+          '<div class="lt-footer">' +
+            '<a class="btn btn-ghost btn-sm" href="https://www.google.com/maps/dir/?api=1&destination=' + o.lat + ',' + o.lng + '" target="_blank" rel="noopener">' +
+              '🚀 Navigasi Google Maps ↗' +
+            '</a>' +
+            '<span class="muted" id="lt-status-note-' + o.id + '" style="font-size:0.75rem">' +
+              (isShipped ? 'Kurir aktif • Memperbarui posisi otomatis' : 'Titik terdaftar di database') +
+            '</span>' +
+          '</div>' +
+        '</div>';
       }
 
       var resiHtml = "";
@@ -1801,6 +1826,14 @@ function executeTrack(rawOrderId, rawEmail) {
       var refreshBtn = '<button class="track-btn-refresh" type="button" onclick="trackOrder(\'' + o.id + '\', \'' + escapeHtml(o.email || email) + '\', false)" title="Segarkan status pesanan">' +
         '🔄 Segarkan' +
         '</button>';
+
+      var cancelBtnHtml = "";
+      if (o.status === "pending" || o.status === "awaiting_payment") {
+        cancelBtnHtml = '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--stroke-2);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+          '<span class="muted" style="font-size:0.78rem">Pesanan belum diproses kurir</span>' +
+          '<button class="btn btn-danger btn-sm" type="button" onclick="cancelTrackedOrder(' + o.id + ', \'' + escapeHtml(o.email || email) + '\')">❌ Batalkan Pesanan</button>' +
+        '</div>';
+      }
 
       out.innerHTML = '<div class="track-card">' +
         '<div class="track-header-row">' +
@@ -1819,12 +1852,21 @@ function executeTrack(rawOrderId, rawEmail) {
           '</div>' +
         '</div>' +
         resiHtml +
+        liveMapHtml +
         destinationLink +
         liveCourierBox +
         (history ? '<div class="track-timeline">' + history + "</div>" : "") +
+        cancelBtnHtml +
         "</div>" +
         payBox +
         '<div id="member-box"></div>';
+
+      // Initialize Leaflet Live Tracking Map
+      if (o.lat && o.lng && window.L) {
+        setTimeout(function () {
+          initLiveTrackingMap(mapContainerId, o);
+        }, 150);
+      }
 
       wirePayUpload(o.id, o.email || email);
       if (o.email || email) {
@@ -1841,6 +1883,168 @@ function executeTrack(rawOrderId, rawEmail) {
     .finally(function () {
       if (btn) btn.disabled = false;
     });
+}
+
+/* ---- Leaflet Live Tracking Map Controller ---- */
+var _activeTrackInterval = null;
+function initLiveTrackingMap(containerId, order) {
+  var el = document.getElementById(containerId);
+  if (!el || !window.L) return;
+
+  if (_activeTrackInterval) {
+    clearInterval(_activeTrackInterval);
+    _activeTrackInterval = null;
+  }
+
+  var buyerLat = Number(order.lat);
+  var buyerLng = Number(order.lng);
+
+  var trackMap = L.map(containerId, {
+    zoomControl: true,
+    attributionControl: false
+  }).setView([buyerLat, buyerLng], 14);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
+  }).addTo(trackMap);
+
+  // 1. Buyer / Destination Marker
+  var buyerIcon = L.divIcon({
+    className: "custom-leaflet-pin",
+    html: '<div class="pin-marker-wrap"><span class="buyer-pulse"></span><div class="pin-buyer" title="Rumah Pembeli (Tujuan)">🏠</div></div>',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+  });
+
+  var markerBuyer = L.marker([buyerLat, buyerLng], {
+    icon: buyerIcon,
+    title: "Rumah Pembeli (Tujuan)"
+  }).addTo(trackMap);
+
+  markerBuyer.bindPopup("<b style='color:#38BDF8'>🏠 Rumah Pembeli (Tujuan)</b><br>" + escapeHtml(order.address || "Alamat Pembeli")).openPopup();
+
+  // 2. Store Marker
+  var storeLat = (shipCfg && shipCfg.store && shipCfg.store.lat) ? Number(shipCfg.store.lat) : -6.2087634;
+  var storeLng = (shipCfg && shipCfg.store && shipCfg.store.lng) ? Number(shipCfg.store.lng) : 106.845599;
+
+  var storeIcon = L.divIcon({
+    className: "custom-leaflet-pin",
+    html: '<div class="pin-marker-wrap"><div class="pin-store" title="KICKSTORM Jakarta Hub">🏬</div></div>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  });
+
+  var markerStore = L.marker([storeLat, storeLng], {
+    icon: storeIcon,
+    title: "KICKSTORM Hub"
+  }).addTo(trackMap).bindPopup("<b>🏬 KICKSTORM Hub</b><br>Titik Awal Pengiriman");
+
+  // 3. Courier Marker & Polyline
+  var courierIcon = L.divIcon({
+    className: "custom-leaflet-pin",
+    html: '<div class="pin-marker-wrap"><span class="courier-pulse"></span><div class="pin-courier" title="Kurir KICKSTORM">🛵</div></div>',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18]
+  });
+
+  var markerKurir = null;
+  var polylineRoute = null;
+
+  function updateCourierDisplay(kLat, kLng, courierName) {
+    var cLat = Number(kLat);
+    var cLng = Number(kLng);
+
+    if (!markerKurir) {
+      markerKurir = L.marker([cLat, cLng], {
+        icon: courierIcon,
+        title: "Posisi Kurir Saat Ini"
+      }).addTo(trackMap);
+      markerKurir.bindPopup("<b style='color:var(--volt)'>🛵 " + escapeHtml(courierName || "Kurir KICKSTORM") + "</b><br>Sedang membawa paketmu!").openPopup();
+    } else {
+      markerKurir.setLatLng([cLat, cLng]);
+    }
+
+    // Draw route line from Courier to Buyer
+    var routePoints = [
+      [cLat, cLng],
+      [buyerLat, buyerLng]
+    ];
+
+    if (!polylineRoute) {
+      polylineRoute = L.polyline(routePoints, {
+        color: "#D6FF3F",
+        weight: 4,
+        opacity: 0.85,
+        dashArray: "8, 8",
+        lineCap: "round"
+      }).addTo(trackMap);
+    } else {
+      polylineRoute.setLatLngs(routePoints);
+    }
+
+    // Fit map bounds to show both Courier and Buyer comfortably
+    var bounds = L.latLngBounds([
+      [cLat, cLng],
+      [buyerLat, buyerLng]
+    ]);
+    trackMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+
+    // Update Distance & ETA metrics in Header
+    var distKm = Math.round(haversineDistance(cLat, cLng, buyerLat, buyerLng) * 10) / 10;
+    var etaMins = Math.max(2, Math.round((distKm / 25) * 60) + 3);
+
+    var metricsEl = document.getElementById("lt-metrics-" + order.id);
+    if (metricsEl) {
+      metricsEl.innerHTML = '<span class="lt-metric-pill">🛵 Jarak: ' + distKm + ' km</span>' +
+        '<span class="lt-metric-pill" style="border-color:rgba(214,255,63,0.5);background:var(--volt);color:#0A0A0C">⏱️ Tiba dlm ~' + etaMins + ' menit</span>';
+    }
+
+    var noteEl = document.getElementById("lt-status-note-" + order.id);
+    if (noteEl) {
+      noteEl.innerHTML = '<span style="color:var(--volt)">● Live</span> Kurir <b>' + escapeHtml(courierName || "KICKSTORM") + '</b> sedang di jalan (Satelit terhubung)';
+    }
+  }
+
+  function haversineDistance(lat1, lon1, lat2, lon2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * (Math.PI / 180);
+    var dLon = (lon2 - lon1) * (Math.PI / 180);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // Initial Courier position check
+  if (order.status === "shipped") {
+    var initKurirLat = order.courier_lat || storeLat;
+    var initKurirLng = order.courier_lng || storeLng;
+    updateCourierDisplay(initKurirLat, initKurirLng, order.courier_name);
+
+    // Auto-polling from Neon.tech every 5 seconds
+    _activeTrackInterval = setInterval(function () {
+      fetch("/api/lacak-pesanan/" + order.id)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.kurir && data.kurir.latitude != null && data.kurir.longitude != null) {
+            updateCourierDisplay(data.kurir.latitude, data.kurir.longitude, data.kurir.nama_kurir);
+          }
+        })
+        .catch(function () { });
+    }, 5000);
+  } else {
+    // Fits bounds to Buyer & Store
+    var staticBounds = L.latLngBounds([
+      [storeLat, storeLng],
+      [buyerLat, buyerLng]
+    ]);
+    trackMap.fitBounds(staticBounds, { padding: [40, 40], maxZoom: 15 });
+  }
+
+  setTimeout(function () {
+    if (trackMap) trackMap.invalidateSize();
+  }, 350);
 }
 
 window.copyTextToClipboard = function (text, btnEl) {
@@ -1916,58 +2120,98 @@ renderTrackHistoryPill();
 
 function wirePayUpload(orderId, email) {
   var file = document.getElementById("pay-file");
-  if (!file) return;
+  var sendBtn = document.getElementById("pay-send");
+  if (!file || !sendBtn) return;
+
+  var selectedDataUrl = null;
+
   file.addEventListener("change", function () {
     var preview = document.getElementById("pay-preview");
+    var msg = document.getElementById("pay-msg");
     if (file.files && file.files[0]) {
+      var f = file.files[0];
+      if (f.size > 10 * 1024 * 1024) {
+        if (msg) {
+          msg.textContent = "Ukuran gambar maksimal 10MB.";
+          msg.className = "form-msg err";
+        }
+        file.value = "";
+        selectedDataUrl = null;
+        if (preview) { preview.hidden = true; preview.style.display = "none"; }
+        return;
+      }
       var reader = new FileReader();
       reader.onload = function (ev) {
-        preview.src = ev.target.result;
-        preview.hidden = false;
+        selectedDataUrl = ev.target.result;
+        if (preview) {
+          preview.src = selectedDataUrl;
+          preview.hidden = false;
+          preview.style.display = "block";
+        }
+        if (msg) {
+          msg.textContent = "✓ Foto dipilih: " + f.name + " (" + Math.round(f.size / 1024) + " KB)";
+          msg.className = "form-msg ok";
+        }
       };
-      reader.readAsDataURL(file.files[0]);
+      reader.readAsDataURL(f);
     }
   });
-  document.getElementById("pay-send").addEventListener("click", function () {
+
+  sendBtn.addEventListener("click", function () {
     var msg = document.getElementById("pay-msg");
-    if (!file.files || !file.files[0]) {
-      msg.textContent = "Pilih gambar bukti transfer dulu.";
-      msg.className = "form-msg err";
+    if (!selectedDataUrl) {
+      if (msg) {
+        msg.textContent = "⚠️ Pilih file foto/screenshot bukti transfer terlebih dahulu!";
+        msg.className = "form-msg err";
+      }
+      file.click();
       return;
     }
-    if (file.files[0].size > 5 * 1024 * 1024) {
-      msg.textContent = "Ukuran gambar maksimal 5MB.";
-      msg.className = "form-msg err";
-      return;
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = "⏳ Mengunggah bukti...";
+    if (msg) {
+      msg.textContent = "Mengunggah bukti pembayaran...";
+      msg.className = "form-msg";
     }
-    var btn = document.getElementById("pay-send");
-    btn.disabled = true;
-    msg.textContent = "Mengunggah...";
-    msg.className = "form-msg";
-    var reader = new FileReader();
-    reader.onload = function (ev) {
-      fetch("/api/orders/" + orderId + "/payment-proof", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proof: ev.target.result, note: document.getElementById("pay-note").value.trim() })
-      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-        .then(function (res) {
-          if (res.ok) {
-            msg.textContent = "\u2713 Bukti terkirim \u2014 admin akan memverifikasi segera.";
+
+    var noteVal = document.getElementById("pay-note") ? document.getElementById("pay-note").value.trim() : "";
+
+    fetch("/api/orders/" + orderId + "/payment-proof", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proof: selectedDataUrl, note: noteVal })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (res.ok) {
+          if (msg) {
+            msg.textContent = "✓ Bukti transfer berhasil dikirim! Admin akan segera memverifikasi.";
             msg.className = "form-msg ok";
-            btn.textContent = "Terkirim \u2713";
-          } else {
-            msg.textContent = res.d.error || "Gagal mengunggah.";
+          }
+          sendBtn.textContent = "✅ Berhasil Terkirim";
+          sendBtn.style.background = "var(--volt)";
+          sendBtn.style.color = "#0A0A0C";
+          setTimeout(function () {
+            trackOrder(orderId, email || "", false);
+          }, 1200);
+        } else {
+          sendBtn.disabled = false;
+          sendBtn.textContent = "🚀 Kirim Bukti Transfer";
+          if (msg) {
+            msg.textContent = res.d.error || "Gagal mengunggah bukti transfer.";
             msg.className = "form-msg err";
           }
-        })
-        .catch(function () {
-          msg.textContent = "Gagal terhubung.";
+        }
+      })
+      .catch(function () {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "🚀 Kirim Bukti Transfer";
+        if (msg) {
+          msg.textContent = "Gagal terhubung ke server.";
           msg.className = "form-msg err";
-        })
-        .finally(function () { btn.disabled = false; });
-    };
-    reader.readAsDataURL(file.files[0]);
+        }
+      });
   });
 }
 
@@ -2126,5 +2370,22 @@ fetch("/api/stats")
     document.getElementById("stat-rating").textContent = s.rating;
     document.getElementById("stat-hours").textContent = s.shippingHours;
   });
+
+window.cancelTrackedOrder = function (id, email) {
+  if (!confirm("Apakah Anda yakin ingin membatalkan pesanan #" + id + "?")) return;
+  fetch("/api/orders/" + id + "/cancel", { method: "POST" })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (res.ok) {
+        alert("✓ Pesanan #" + id + " berhasil dibatalkan.");
+        trackOrder(id, email || "", false);
+      } else {
+        alert(res.error || "Gagal membatalkan pesanan.");
+      }
+    })
+    .catch(function () {
+      alert("Gagal terhubung ke server.");
+    });
+};
 
 wireBtns();

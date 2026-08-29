@@ -79,11 +79,20 @@ function parseTiers(json) {
 }
 
 function calcShipping(distKm, subtotal, tiers, s) {
-  const tierList = tiers || parseTiers(s.shipping_tiers) || [{ max: 9999, cost: 15000 }];
   const freeMin = Math.max(0, Number(s.free_shipping_min) || 0);
-  if (freeMin > 0 && subtotal >= freeMin) return { cost: 0, free: true };
+  if (freeMin > 0 && subtotal >= freeMin) return { cost: 0, free: true, outOfArea: false };
+
+  const maxKm = Math.max(0, Number(s.max_shipping_km) || 0);
+  const outOfAreaCost = Math.max(0, Number(s.out_of_area_cost) || 50000);
+
+  // If distance exceeds local delivery radius (e.g. 1055 km > 25 km), switch to national out-of-area rate
+  if (maxKm > 0 && distKm > maxKm) {
+    return { cost: outOfAreaCost, free: false, outOfArea: true };
+  }
+
+  const tierList = tiers || parseTiers(s.shipping_tiers) || [{ max: 9999, cost: 15000 }];
   const tier = tierList.find((t) => distKm <= t.max) || tierList[tierList.length - 1];
-  return { cost: tier ? Math.max(0, tier.cost) : 0, free: false };
+  return { cost: tier ? Math.max(0, tier.cost) : 0, free: false, outOfArea: false };
 }
 
 async function getCouriers() {
@@ -140,6 +149,7 @@ async function publicConfig() {
       tiers: defaultTiers,
       freeMin: Math.max(0, Number(s.free_shipping_min) || 0),
       maxKm: Math.max(0, Number(s.max_shipping_km) || 0),
+      outOfAreaCost: Math.max(0, Number(s.out_of_area_cost) || 50000),
       codKm: active ? active.cod_km : 0
     },
     couriers: couriers.map((c) => ({ id: c.id, name: c.name, tiers: c.tiers, codKm: c.cod_km, active: c.active === 1 })),
@@ -640,12 +650,6 @@ app.post("/api/orders", async (req, res) => {
   let distKm = 0;
   if (lat !== null && lng !== null && storeLat && storeLng) {
     distKm = haversineKm(storeLat, storeLng, lat, lng);
-    const maxKm = Math.max(0, Number(s.max_shipping_km) || 0);
-    if (maxKm > 0 && distKm > maxKm) {
-      return res.status(400).json({
-        error: `Lokasi kamu ${Math.round(distKm)} km dari toko — di luar jangkauan pengiriman (maks ${maxKm} km). Pilih lokasi lain atau hubungi admin.`
-      });
-    }
   }
 
   const couriers = await getCouriers();
@@ -911,7 +915,7 @@ app.get("/api/track", async (req, res) => {
     }
   }
 
-  const ORDER_COLS = "id, customer_name, email, total, discount, coupon_code, referral_code, flash_sale_id, shipping, status, tracking_number, notes, created_at, payment_method, payment_proof, payment_note, paid_at, courier_name, courier_lat, courier_lng, courier_share_url, courier_updated_at, maps_url, address, lat, lng, queue_no";
+  const ORDER_COLS = "id, customer_name, email, total, discount, coupon_code, referral_code, flash_sale_id, shipping, status, tracking_number, notes, created_at, payment_method, payment_proof, payment_note, paid_at, courier_id, courier_name, courier_lat, courier_lng, courier_share_url, courier_updated_at, maps_url, address, lat, lng, queue_no";
 
   let order = null;
 
@@ -1046,10 +1050,11 @@ app.post("/api/courier/orders/:id/share-link", async (req, res) => {
 });
 
 app.post("/api/courier/sync-location", async (req, res) => {
-  const lat = req.body.lat != null ? Number(req.body.lat) : null;
-  const lng = req.body.lng != null ? Number(req.body.lng) : null;
-  const shareUrl = String(req.body.share_url || "").trim();
-  const courierId = req.body.courier_id ? Number(req.body.courier_id) : null;
+  const lat = req.body.lat != null ? Number(req.body.lat) : (req.body.latitude != null ? Number(req.body.latitude) : null);
+  const lng = req.body.lng != null ? Number(req.body.lng) : (req.body.longitude != null ? Number(req.body.longitude) : null);
+  const shareUrl = String(req.body.share_url || req.body.shareUrl || "").trim();
+  const courierId = req.body.courier_id ? Number(req.body.courier_id) : (req.body.id_kurir ? Number(req.body.id_kurir) : 1);
+  const courierName = String(req.body.courier_name || req.body.nama_kurir || "Kurir KICKSTORM").trim();
   const now = nowStr();
 
   if (lat !== null && lng !== null) {
@@ -1058,12 +1063,27 @@ app.post("/api/courier/sync-location", async (req, res) => {
     }
   }
 
+  // Update lokasi_kurir table in Neon PostgreSQL / SQLite
+  if (lat !== null && lng !== null) {
+    try {
+      await db.run(
+        "INSERT INTO lokasi_kurir (id_kurir, nama_kurir, latitude, longitude, waktu_diperbarui) " +
+        "VALUES (?, ?, ?, ?, datetime('now')) " +
+        "ON CONFLICT(id_kurir) DO UPDATE SET latitude = excluded.latitude, longitude = excluded.longitude, nama_kurir = excluded.nama_kurir, waktu_diperbarui = datetime('now')",
+        [courierId, courierName, lat, lng]
+      );
+    } catch (e) {
+      console.warn("Update lokasi_kurir notice:", e.message);
+    }
+  }
+
+  // Also sync to active shipped orders
   if (courierId) {
     if (lat !== null && lng !== null) {
-      await db.run("UPDATE orders SET courier_lat = ?, courier_lng = ?, courier_updated_at = ? WHERE courier_id = ? AND status = 'shipped'", [lat, lng, now, courierId]);
+      await db.run("UPDATE orders SET courier_lat = ?, courier_lng = ?, courier_updated_at = ? WHERE (courier_id = ? OR courier_id IS NULL) AND status = 'shipped'", [lat, lng, now, courierId]);
     }
     if (shareUrl) {
-      await db.run("UPDATE orders SET courier_share_url = ?, courier_updated_at = ? WHERE courier_id = ? AND status = 'shipped'", [shareUrl, now, courierId]);
+      await db.run("UPDATE orders SET courier_share_url = ?, courier_updated_at = ? WHERE (courier_id = ? OR courier_id IS NULL) AND status = 'shipped'", [shareUrl, now, courierId]);
     }
   } else {
     if (lat !== null && lng !== null) {
@@ -1074,6 +1094,165 @@ app.post("/api/courier/sync-location", async (req, res) => {
     }
   }
   res.json({ ok: true, lat, lng, share_url: shareUrl, updated_at: now });
+});
+
+/* API: Endpoint Lacak Pesanan Real-time (Sesuai Spesifikasi Neon + Leaflet) */
+app.get("/api/lacak-pesanan/:id", async (req, res) => {
+  try {
+    const rawId = req.params.id;
+    let orderId = null;
+    const numMatch = String(rawId).match(/^(?:order|pesanan|no\.?|ks-)?\s*#?\s*(\d+)$/i);
+    if (numMatch) {
+      orderId = Number.parseInt(numMatch[1], 10);
+    } else {
+      orderId = Number.parseInt(rawId, 10);
+    }
+
+    if (!orderId || !Number.isInteger(orderId)) {
+      return res.status(400).json({ error: "ID pesanan tidak valid" });
+    }
+
+    const order = await db.get(
+      "SELECT id, customer_name, email, address, maps_url, lat, lng, total, status, tracking_number, notes, created_at, payment_method, courier_id, courier_name, courier_lat, courier_lng, courier_share_url, courier_updated_at FROM orders WHERE id = ?",
+      [orderId]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: "Pesanan #" + orderId + " tidak ditemukan di database." });
+    }
+
+    // Ambil data posisi kurir dari tabel lokasi_kurir atau dari snapshot pesanan
+    let kurir = null;
+    if (order.courier_id) {
+      kurir = await db.get("SELECT id_kurir, nama_kurir, latitude, longitude, waktu_diperbarui FROM lokasi_kurir WHERE id_kurir = ?", [order.courier_id]);
+    }
+    if (!kurir) {
+      kurir = await db.get("SELECT id_kurir, nama_kurir, latitude, longitude, waktu_diperbarui FROM lokasi_kurir ORDER BY id_kurir LIMIT 1");
+    }
+
+    // Fallback jika kurir belum ada di lokasi_kurir tapi ada di orders
+    if (!kurir && (order.courier_lat || order.courier_lng)) {
+      kurir = {
+        id_kurir: order.courier_id || 1,
+        nama_kurir: order.courier_name || "Kurir KICKSTORM",
+        latitude: order.courier_lat,
+        longitude: order.courier_lng,
+        waktu_diperbarui: order.courier_updated_at
+      };
+    }
+
+    const s = await getSettings();
+    const storeLat = Number(s.store_lat) || -6.2087634;
+    const storeLng = Number(s.store_lng) || 106.845599;
+
+    const items = await db.all("SELECT product_id, product_name, price, qty, size, colorway, image_url FROM order_items WHERE order_id = ?", [order.id]);
+    const history = await db.all("SELECT from_status, to_status, changed_at FROM order_status_log WHERE order_id = ? ORDER BY id", [order.id]);
+
+    let distKm = null;
+    let etaMinutes = null;
+    const curLat = kurir && kurir.latitude != null ? Number(kurir.latitude) : (order.courier_lat || storeLat);
+    const curLng = kurir && kurir.longitude != null ? Number(kurir.longitude) : (order.courier_lng || storeLng);
+    if (order.lat && order.lng && curLat && curLng) {
+      distKm = Math.round(haversineKm(curLat, curLng, order.lat, order.lng) * 10) / 10;
+      // Asumsi rata-rata kecepatan kurir motor di kota 25 km/jam + 5 menit waktu parkir
+      etaMinutes = Math.max(3, Math.round((distKm / 25) * 60) + 3);
+    }
+
+    res.json({
+      ok: true,
+      pembeli: {
+        id: order.id,
+        nama_pembeli: order.customer_name,
+        item_sepatu: items.map((i) => `${i.product_name} ×${i.qty}`).join(", ") || "Sneaker KICKSTORM",
+        alamat: order.address,
+        latitude: order.lat,
+        longitude: order.lng,
+        maps_url: order.maps_url,
+        waktu_pesan: order.created_at
+      },
+      kurir: kurir ? {
+        id_kurir: kurir.id_kurir,
+        nama_kurir: kurir.nama_kurir || order.courier_name || "Kurir KICKSTORM",
+        latitude: kurir.latitude != null ? Number(kurir.latitude) : order.courier_lat,
+        longitude: kurir.longitude != null ? Number(kurir.longitude) : order.courier_lng,
+        share_url: order.courier_share_url || null,
+        waktu_diperbarui: kurir.waktu_diperbarui
+      } : {
+        id_kurir: order.courier_id || 1,
+        nama_kurir: order.courier_name || "Kurir KICKSTORM",
+        latitude: order.courier_lat || storeLat,
+        longitude: order.courier_lng || storeLng,
+        share_url: order.courier_share_url || null,
+        waktu_diperbarui: order.courier_updated_at || nowStr()
+      },
+      store: {
+        name: s.store_name || "KICKSTORM Hub Jakarta",
+        latitude: storeLat,
+        longitude: storeLng
+      },
+      order: {
+        ...order,
+        items,
+        history
+      },
+      distance_km: distKm,
+      eta_minutes: etaMinutes
+    });
+  } catch (err) {
+    console.error("Lacak pesanan error:", err.message);
+    res.status(500).json({ error: "Terjadi kesalahan server saat melacak pesanan" });
+  }
+});
+
+/* API: Update Lokasi Kurir Real-time (Sesuai Spesifikasi) */
+app.post("/api/update-lokasi-kurir", async (req, res) => {
+  try {
+    const id_kurir = req.body.id_kurir ? Number(req.body.id_kurir) : (req.body.courier_id ? Number(req.body.courier_id) : 1);
+    const nama_kurir = String(req.body.nama_kurir || req.body.courier_name || "Kurir KICKSTORM").trim();
+    const latitude = req.body.latitude != null ? Number(req.body.latitude) : (req.body.lat != null ? Number(req.body.lat) : null);
+    const longitude = req.body.longitude != null ? Number(req.body.longitude) : (req.body.lng != null ? Number(req.body.lng) : null);
+    const share_url = String(req.body.share_url || req.body.shareUrl || "").trim();
+
+    if (latitude === null || longitude === null || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res.status(400).json({ error: "Koordinat latitude & longitude wajib berupa angka yang valid." });
+    }
+
+    const now = nowStr();
+
+    // 1. Update tabel lokasi_kurir di Neon PostgreSQL / SQLite
+    await db.run(
+      `INSERT INTO lokasi_kurir (id_kurir, nama_kurir, latitude, longitude, waktu_diperbarui) 
+       VALUES (?, ?, ?, ?, datetime('now')) 
+       ON CONFLICT (id_kurir) 
+       DO UPDATE SET latitude = excluded.latitude, longitude = excluded.longitude, nama_kurir = excluded.nama_kurir, waktu_diperbarui = datetime('now')`,
+      [id_kurir, nama_kurir, latitude, longitude]
+    );
+
+    // 2. Sinkronkan ke pesanan yang sedang diantar (status = 'shipped')
+    await db.run(
+      "UPDATE orders SET courier_lat = ?, courier_lng = ?, courier_name = ?, courier_updated_at = ? WHERE (courier_id = ? OR courier_id IS NULL) AND status = 'shipped'",
+      [latitude, longitude, nama_kurir, now, id_kurir]
+    );
+
+    if (share_url) {
+      await db.run(
+        "UPDATE orders SET courier_share_url = ?, courier_updated_at = ? WHERE (courier_id = ? OR courier_id IS NULL) AND status = 'shipped'",
+        [share_url, now, id_kurir]
+      );
+    }
+
+    res.json({
+      ok: true,
+      message: "Lokasi kurir berhasil diperbarui di Neon Database",
+      id_kurir,
+      latitude,
+      longitude,
+      waktu_diperbarui: now
+    });
+  } catch (err) {
+    console.error("Update lokasi kurir error:", err.message);
+    res.status(500).json({ error: "Gagal memperbarui lokasi kurir: " + err.message });
+  }
 });
 
 app.post("/api/admin/login", async (req, res) => {
@@ -1233,6 +1412,61 @@ app.put("/api/orders/:id/tracking", requireAdmin, async (req, res) => {
   res.json({ id, tracking: tracking || null });
 });
 
+const deleteOrderHandler = async (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "ID pesanan tidak valid." });
+  const order = await db.get("SELECT id, status, total, email FROM orders WHERE id = ?", [id]);
+  if (!order) return res.status(404).json({ error: "Pesanan tidak ditemukan." });
+
+  // Kembalikan stok jika pesanan belum dibatalkan sebelumnya
+  if (order.status !== "cancelled") {
+    const items = await db.all("SELECT product_id, qty FROM order_items WHERE order_id = ?", [id]);
+    for (const it of items) {
+      if (it.product_id) {
+        await db.run("UPDATE products SET stock = stock + ?, sold = MAX(sold - ?, 0) WHERE id = ?", [it.qty, it.qty, it.product_id]);
+      }
+    }
+    const pts = pointsForOrder(order.total);
+    if (pts > 0 && order.email) {
+      await db.run("UPDATE members SET points = MAX(points - ?, 0) WHERE email = ?", [pts, order.email]);
+    }
+  }
+
+  try { await db.run("DELETE FROM order_items WHERE order_id = ?", [id]); } catch (e) {}
+  try { await db.run("DELETE FROM order_status_log WHERE order_id = ?", [id]); } catch (e) {}
+  try { await db.run("DELETE FROM lokasi_kurir WHERE order_id = ?", [id]); } catch (e) {}
+  await db.run("DELETE FROM orders WHERE id = ?", [id]);
+
+  res.json({ ok: true, id, message: `Pesanan #${id} berhasil dihapus.` });
+};
+
+app.delete("/api/orders/:id", requireAdmin, deleteOrderHandler);
+app.delete("/api/admin/orders/:id", requireAdmin, deleteOrderHandler);
+
+app.post("/api/orders/:id/cancel", async (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "ID pesanan tidak valid." });
+  const order = await db.get("SELECT id, status, total, email FROM orders WHERE id = ?", [id]);
+  if (!order) return res.status(404).json({ error: "Pesanan tidak ditemukan." });
+  if (order.status !== "pending" && order.status !== "awaiting_payment") {
+    return res.status(400).json({ error: "Hanya pesanan yang belum diproses/dikirim yang bisa dibatalkan." });
+  }
+
+  const items = await db.all("SELECT product_id, qty FROM order_items WHERE order_id = ?", [id]);
+  await db.run("UPDATE orders SET status = 'cancelled' WHERE id = ?", [id]);
+  for (const it of items) {
+    if (it.product_id) {
+      await db.run("UPDATE products SET stock = stock + ?, sold = MAX(sold - ?, 0) WHERE id = ?", [it.qty, it.qty, it.product_id]);
+    }
+  }
+  const pts = pointsForOrder(order.total);
+  if (pts > 0 && order.email) {
+    await db.run("UPDATE members SET points = MAX(points - ?, 0) WHERE email = ?", [pts, order.email]);
+  }
+  await db.run("INSERT INTO order_status_log (order_id, from_status, to_status, changed_by) VALUES (?, ?, 'cancelled', 'customer')", [id, order.status]);
+  res.json({ ok: true, id, status: "cancelled", message: `Pesanan #${id} berhasil dibatalkan.` });
+});
+
 /* ---- Alur pembayaran: bukti transfer + verifikasi ---- */
 
 app.post("/api/orders/:id/payment-proof", async (req, res) => {
@@ -1240,27 +1474,40 @@ app.post("/api/orders/:id/payment-proof", async (req, res) => {
   if (!Number.isInteger(id)) return res.status(400).json({ error: "ID pesanan tidak valid." });
   const order = await db.get("SELECT id, status FROM orders WHERE id = ?", [id]);
   if (!order) return res.status(404).json({ error: "Pesanan tidak ditemukan." });
-  if (order.status !== "awaiting_payment") {
-    return res.status(400).json({ error: "Bukti pembayaran hanya bisa diunggah saat status Menunggu Pembayaran." });
+  if (order.status !== "awaiting_payment" && order.status !== "pending") {
+    return res.status(400).json({ error: "Bukti pembayaran hanya bisa diunggah untuk pesanan yang belum selesai atau dikirim." });
   }
-  const dataUrl = String(req.body.proof || "");
+  const dataUrl = String(req.body.proof || "").trim();
   const note = String(req.body.note || "").trim().slice(0, 200);
-  const match = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/);
-  if (!match) {
-    return res.status(400).json({ error: "Unggah gambar bukti (PNG/JPG/WebP) yang valid." });
+
+  if (!dataUrl.startsWith("data:image/")) {
+    return res.status(400).json({ error: "Unggah gambar bukti transfer (PNG/JPG/WebP) yang valid." });
   }
-  const ext = match[1].replace("jpeg", "jpg");
-  const buf = Buffer.from(match[2], "base64");
-  if (buf.length < 1024 || buf.length > 5 * 1024 * 1024) {
-    return res.status(400).json({ error: "Ukuran gambar bukti harus 1KB - 5MB." });
+
+  const parts = dataUrl.split(",");
+  if (parts.length < 2) {
+    return res.status(400).json({ error: "Format gambar tidak valid." });
   }
+
+  const mimeMatch = parts[0].match(/data:image\/([a-zA-Z0-9+.-]+);base64/);
+  const rawExt = (mimeMatch && mimeMatch[1]) ? mimeMatch[1].toLowerCase() : "jpg";
+  const ext = rawExt.includes("png") ? "png" : rawExt.includes("webp") ? "webp" : "jpg";
+
+  const base64Clean = parts[1].replace(/\s/g, "");
+  const buf = Buffer.from(base64Clean, "base64");
+  if (buf.length < 10 || buf.length > 10 * 1024 * 1024) {
+    return res.status(400).json({ error: "Ukuran gambar bukti transfer maksimal 10MB." });
+  }
+
   const filename = `pay-${id}-${Date.now()}.${ext}`;
   try {
     require("fs").writeFileSync(path.join(uploadsDir, filename), buf);
-  } catch (e) {}
+  } catch (e) {
+    console.error("Failed to save upload:", e.message);
+  }
   const proofPath = "/uploads/" + filename;
   await db.run("UPDATE orders SET payment_proof = ?, payment_note = ? WHERE id = ?", [proofPath, note, id]);
-  res.json({ ok: true, proof: proofPath });
+  res.json({ ok: true, proof: proofPath, message: "Bukti transfer berhasil dikirim!" });
 });
 
 app.post("/api/admin/orders/:id/verify-payment", requireAdmin, async (req, res) => {
@@ -1662,6 +1909,11 @@ app.patch("/api/admin/settings", requireAdmin, async (req, res) => {
     const v = num(b.max_shipping_km, 0);
     if (v < 0 || v > 100000) return res.status(400).json({ error: "Radius pengiriman tidak valid." });
     out.max_shipping_km = String(v);
+  }
+  if (b.out_of_area_cost !== undefined) {
+    const v = num(b.out_of_area_cost, 50000);
+    if (v < 0 || v > 100000000) return res.status(400).json({ error: "Tarif luar jangkauan tidak valid." });
+    out.out_of_area_cost = String(v);
   }
   if (b.wa_number !== undefined) {
     const wa = String(b.wa_number).replace(/[^\d]/g, "").slice(0, 20);

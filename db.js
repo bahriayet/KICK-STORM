@@ -351,6 +351,13 @@ const pgSchemaStatements = [
     birth_month INT,
     birth_day INT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE TABLE IF NOT EXISTS lokasi_kurir (
+    id_kurir INT PRIMARY KEY,
+    nama_kurir VARCHAR(100) NOT NULL,
+    latitude NUMERIC(10, 7),
+    longitude NUMERIC(10, 7),
+    waktu_diperbarui TIMESTAMPTZ DEFAULT NOW()
   );`
 ];
 
@@ -496,6 +503,13 @@ const sqliteSchemaStatements = [
     birth_month INTEGER,
     birth_day INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );`,
+  `CREATE TABLE IF NOT EXISTS lokasi_kurir (
+    id_kurir INTEGER PRIMARY KEY,
+    nama_kurir TEXT NOT NULL,
+    latitude REAL,
+    longitude REAL,
+    waktu_diperbarui TEXT DEFAULT (datetime('now'))
   );`
 ];
 
@@ -520,6 +534,7 @@ const defaultSettings = {
   ]),
   free_shipping_min: "0",
   max_shipping_km: "25",
+  out_of_area_cost: "50000",
   wa_number: "",
   payment_flow: "0"
 };
@@ -587,6 +602,13 @@ async function ensureInit() {
             ]
           );
         }
+        const kurirLocRes = await pool.query("SELECT COUNT(*) AS n FROM lokasi_kurir");
+        if (Number(kurirLocRes.rows[0]?.n || 0) === 0) {
+          await pool.query(
+            "INSERT INTO lokasi_kurir (id_kurir, nama_kurir, latitude, longitude, waktu_diperbarui) VALUES ($1, $2, $3, $4, NOW())",
+            [1, "Kurir KICKSTORM (Agus)", -6.2150, 106.8500]
+          );
+        }
         return;
       }
 
@@ -651,7 +673,7 @@ async function ensureInit() {
               args: [
                 "Express Kilat",
                 JSON.stringify([
-                  { max: 25000, cost: 25000 },
+                  { max: 5, cost: 25000 },
                   { max: 10, cost: 40000 },
                   { max: 25, cost: 60000 },
                   { max: 9999, cost: 90000 }
@@ -663,6 +685,15 @@ async function ensureInit() {
           ],
           "write"
         );
+      }
+
+      const kurirLocRes = await libsqlClient.execute("SELECT COUNT(*) AS n FROM lokasi_kurir");
+      const kurirLocCount = Number(kurirLocRes.rows[0]?.n || kurirLocRes.rows[0]?.[0] || 0);
+      if (kurirLocCount === 0) {
+        await libsqlClient.execute({
+          sql: "INSERT INTO lokasi_kurir (id_kurir, nama_kurir, latitude, longitude, waktu_diperbarui) VALUES (1, 'Kurir KICKSTORM (Agus)', -6.2150, 106.8500, datetime('now'))",
+          args: []
+        });
       }
     } catch (err) {
       console.error("Database schema init notice:", err.message);

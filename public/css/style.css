@@ -1077,10 +1077,198 @@ button,input{font-family:inherit;font-size:inherit}
 .form-msg{font-size:.85rem;font-weight:600;min-height:1.2em;text-align:center}
 .form-msg.ok{color:var(--volt)}
 .form-msg.err{color:#FF5A4E}
-.map-picker{display:flex;flex-direction:column;gap:8px}
-.map-picker[hidden]{display:none}
-.map-canvas{width:100%;height:220px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--stroke-2);background:var(--map-bg,#1a1a1e)}
+.map-picker{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.map-picker-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.map-canvas{width:100%;height:220px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--stroke-2);background:#121214;position:relative}
+.map-canvas .leaflet-tile{filter:brightness(0.75) invert(1) contrast(3) hue-rotate(200deg) saturate(0.35)}
 #map-hint{text-align:left;min-height:0}
+
+/* --- Leaflet Custom Dark Markers & Glow --- */
+.custom-leaflet-pin{background:none!important;border:none!important}
+.pin-marker-wrap{
+  position:relative;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+}
+.pin-icon{
+  width:32px;height:32px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#FF5A4E,#991B1B);
+  color:#fff;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 14px rgba(255,90,78,0.5),0 0 0 2px #0A0A0C;
+  cursor:grab;transition:transform .2s ease;
+  user-select:none;
+}
+.pin-icon:hover{transform:scale(1.15)}
+.pin-icon:active{cursor:grabbing;transform:scale(1.25)}
+.pin-pulse{
+  position:absolute;inset:-6px;border-radius:50%;
+  background:rgba(255,90,78,0.35);
+  animation:pinPulseWave 2s cubic-bezier(0,0.2,0.8,1) infinite;
+  pointer-events:none;
+}
+@keyframes pinPulseWave{
+  0%{transform:scale(0.6);opacity:1}
+  100%{transform:scale(1.8);opacity:0}
+}
+
+/* Courier Motor Marker */
+.pin-courier{
+  width:36px;height:36px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#D6FF3F,#84CC16);
+  color:#0A0A0C;font-size:18px;font-weight:bold;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 20px rgba(214,255,63,0.7),0 0 0 3px #0A0A0C;
+  animation:courierGlow 1.8s infinite alternate ease-in-out;
+  cursor:pointer;
+}
+.courier-pulse{
+  position:absolute;inset:-8px;border-radius:50%;
+  background:rgba(214,255,63,0.4);
+  animation:courierPulseWave 1.8s cubic-bezier(0,0.2,0.8,1) infinite;
+  pointer-events:none;
+}
+@keyframes courierPulseWave{
+  0%{transform:scale(0.6);opacity:1}
+  100%{transform:scale(2);opacity:0}
+}
+@keyframes courierGlow{
+  0%{box-shadow:0 0 10px rgba(214,255,63,0.4),0 0 0 2px #0A0A0C}
+  100%{box-shadow:0 0 24px rgba(214,255,63,0.9),0 0 0 3px #0A0A0C}
+}
+
+/* Buyer / Destination Marker */
+.pin-buyer{
+  width:32px;height:32px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#38BDF8,#0284C7);
+  color:#fff;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 14px rgba(56,189,248,0.6),0 0 0 2px #0A0A0C;
+}
+.buyer-pulse{
+  position:absolute;inset:-6px;border-radius:50%;
+  background:rgba(56,189,248,0.35);
+  animation:pinPulseWave 2s cubic-bezier(0,0.2,0.8,1) infinite;
+  pointer-events:none;
+}
+
+/* Store Marker */
+.pin-store{
+  width:30px;height:30px;border-radius:50%;
+  background:#18181C;color:#D6FF3F;border:2px solid #D6FF3F;
+  font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 12px rgba(0,0,0,0.6);
+}
+
+/* Leaflet Dark Popup */
+.leaflet-popup-content-wrapper{
+  background:rgba(18,18,22,0.95)!important;
+  color:#F5F5F7!important;
+  border:1px solid rgba(214,255,63,0.25)!important;
+  border-radius:10px!important;
+  backdrop-filter:blur(8px);
+  box-shadow:0 12px 30px rgba(0,0,0,0.7)!important;
+  font-family:var(--font-body,sans-serif)!important;
+  font-size:0.82rem!important;
+  line-height:1.4!important;
+}
+.leaflet-popup-tip{background:rgba(18,18,22,0.95)!important;border:1px solid rgba(214,255,63,0.25)!important}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted)!important;padding:6px 6px 0 0!important}
+.leaflet-container a.leaflet-popup-close-button:hover{color:var(--volt)!important}
+
+/* Live Tracking Card in Order Tracker */
+.live-track-leaflet-wrap{
+  margin-top:14px;
+  background:var(--surface-2);
+  border:1px solid var(--stroke-2);
+  border-radius:var(--radius-sm);
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.lt-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.lt-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:0.88rem;
+  color:var(--text);
+}
+.lt-metrics{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:0.78rem;
+}
+.lt-metric-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:4px 10px;
+  border-radius:999px;
+  background:rgba(214,255,63,0.1);
+  border:1px solid rgba(214,255,63,0.3);
+  color:var(--volt);
+  font-weight:600;
+}
+.live-map-canvas{
+  width:100%;
+  height:280px;
+  border-radius:var(--radius-sm);
+  overflow:hidden;
+  border:1px solid var(--stroke-2);
+  background:#121214;
+  position:relative;
+}
+.live-map-canvas .leaflet-tile{
+  filter:brightness(0.75) invert(1) contrast(3) hue-rotate(200deg) saturate(0.35);
+}
+.lt-footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  font-size:0.8rem;
+}
+
+/* Payment Proof Upload Card in Tracker */
+.pay-upload{
+  margin-top:14px;
+  background:var(--surface-2);
+  border:1px solid rgba(214,255,63,0.3);
+  border-radius:var(--radius-sm);
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+}
+.pay-uploaded-box{
+  border-color:rgba(84,217,140,0.4);
+  background:rgba(84,217,140,0.06);
+}
+.pay-title{
+  font-weight:700;
+  font-size:0.95rem;
+  color:var(--text);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.pay-preview{
+  max-width:220px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--stroke-2);
+  box-shadow:0 4px 14px rgba(0,0,0,0.6);
+}
 
 .forge{background:linear-gradient(180deg,var(--bg) 0%,#0D0D0F 100%);overflow:hidden}
 .forge::before{
