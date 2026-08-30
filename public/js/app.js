@@ -467,11 +467,11 @@ function cartCount() {
 }
 
 function productImg(p) {
-  if (p && p.image_url && p.image_url.trim()) return p.image_url.trim();
-  if (p && p.image && p.image.trim()) return p.image.trim();
+  if (p && p.image_url && p.image_url.trim()) return p.image_url.trim().replace(/\.jpg$/i, ".webp");
+  if (p && p.image && p.image.trim()) return p.image.trim().replace(/\.jpg$/i, ".webp");
   var idNum = (p && p.id != null) ? Number(p.id) : 1;
   var idx = (!isNaN(idNum) && idNum > 0) ? (((idNum - 1) % 6) + 1) : 1;
-  return "/images/koleksi_" + idx + ".jpg";
+  return "/images/koleksi_" + idx + ".webp";
 }
 
 function svgFor(variant) {
@@ -1308,8 +1308,31 @@ function confetti() {
     }
   };
 
+  function loadLeaflet(callback) {
+    if (window.L) {
+      if (callback) callback();
+      return;
+    }
+    if (!document.getElementById("leaflet-css")) {
+      var link = document.createElement("link");
+      link.id = "leaflet-css";
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+    var script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload = function () {
+      if (callback) callback();
+    };
+    document.body.appendChild(script);
+  }
+
   function initLeafletMap() {
-    if (!window.L) return;
+    if (!window.L) {
+      loadLeaflet(initLeafletMap);
+      return;
+    }
     var el = document.getElementById("order-map");
     if (!el || map) return;
 
@@ -1360,7 +1383,11 @@ function confetti() {
   }
 
   function ensureMap() {
-    if (!map) {
+    if (!window.L) {
+      loadLeaflet(function () {
+        initLeafletMap();
+      });
+    } else if (!map) {
       initLeafletMap();
     } else {
       setTimeout(function () {
@@ -1893,7 +1920,16 @@ function executeTrack(rawOrderId, rawEmail) {
 var _activeTrackInterval = null;
 function initLiveTrackingMap(containerId, order) {
   var el = document.getElementById(containerId);
-  if (!el || !window.L) return;
+  if (!el) return;
+
+  if (!window.L) {
+    if (typeof loadLeaflet === "function") {
+      loadLeaflet(function () {
+        initLiveTrackingMap(containerId, order);
+      });
+    }
+    return;
+  }
 
   if (_activeTrackInterval) {
     clearInterval(_activeTrackInterval);
