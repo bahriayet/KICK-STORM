@@ -247,6 +247,7 @@ async function test(name, fn) {
       items: [{ id: 1, qty: 2 }]
     }).expect(201);
     await request(app).delete(`/api/admin/orders/${o.body.orderId}`).expect(401);
+    await request(app).delete("/api/admin/orders/abc").set("Authorization", `Bearer ${token}`).expect(400);
     const del = await request(app)
       .delete(`/api/admin/orders/${o.body.orderId}`)
       .set("Authorization", `Bearer ${token}`)

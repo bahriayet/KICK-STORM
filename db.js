@@ -103,6 +103,8 @@ function formatPostgresSql(sql) {
     .replace(/\(julianday\('now'\)\s*-\s*julianday\(created_at\)\)\s*\*\s*24/gi, "(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600)")
     .replace(/substr\(created_at,\s*1,\s*10\)/gi, "substr(created_at::text, 1, 10)")
     .replace(/points\s*=\s*points\s*\+\s*excluded\.points/gi, "points = members.points + EXCLUDED.points")
+    .replace(/\bMAX\s*\(\s*([^,()]+)\s*,\s*([^()]+)\s*\)/gi, (m, a, b) => "GREATEST(" + a.trim() + ", " + b.trim() + ")")
+    .replace(/\bMIN\s*\(\s*([^,()]+)\s*,\s*([^()]+)\s*\)/gi, (m, a, b) => "LEAST(" + a.trim() + ", " + b.trim() + ")")
     .replace(/\?/g, () => `$${paramIndex++}`);
 }
 

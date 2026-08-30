@@ -574,45 +574,61 @@
   });
 
   function deleteOrder(id, cb) {
-    if (!confirm("Hapus pesanan #" + id + "?\n\nData pesanan akan dihapus permanen dari sistem dan stok produk akan dikembalikan.")) return;
-    api("/api/admin/orders/" + id, { method: "DELETE" }).then(function (res) {
-      if (res.status === 401) return logout();
+    var orderId = Number(id);
+    if (!orderId || isNaN(orderId)) {
+      toast("ID pesanan tidak valid.", true);
+      return;
+    }
+    if (!confirm("Hapus pesanan #" + orderId + "?\n\nData pesanan akan dihapus permanen dari sistem dan stok produk akan dikembalikan.")) return;
+    api("/api/admin/orders/" + orderId, { method: "DELETE" }).then(function (res) {
+      if (res.status === 401) return logout("Sesi Anda telah berakhir, silakan login kembali.");
       if (res.ok) {
-        toast("✓ Pesanan #" + id + " berhasil dihapus.");
+        toast("✓ Pesanan #" + orderId + " berhasil dihapus.");
         if (typeof cb === "function") cb();
+        if (activeOdOrder && activeOdOrder.id === orderId) {
+          closeOrderDetailModal();
+        }
         renderOrders();
         renderProducts();
         renderStats();
       } else {
-        toast(res.data.error || "Gagal menghapus pesanan.", true);
+        var errMsg = (res.data && (res.data.error || res.data.message)) || "Gagal menghapus pesanan.";
+        toast(errMsg, true);
       }
-    }).catch(function () {
+    }).catch(function (err) {
+      console.error("Delete order network error:", err);
       toast("Gagal terhubung ke server.", true);
     });
   }
 
   /* orders desktop: klik baris / kelola → buka modal detail pesanan */
-  document.getElementById("orders-body").addEventListener("click", function (e) {
-    var del = e.target.closest("[data-del-id]");
-    if (del) {
-      e.stopPropagation();
-      return deleteOrder(Number(del.dataset.delId));
-    }
-    var email = e.target.closest("[data-email]");
-    if (email) {
-      e.stopPropagation();
-      return renderCustomerProfile(email.dataset.email);
-    }
-    var pay = e.target.closest("[data-pay-id]");
-    if (pay) {
-      e.stopPropagation();
-      return openPayProof(Number(pay.dataset.payId));
-    }
-    var row = e.target.closest("[data-od-id]");
-    if (row) {
-      openOrderDetailModal(Number(row.dataset.odId));
-    }
-  });
+  var ordersBodyEl = document.getElementById("orders-body");
+  if (ordersBodyEl) {
+    ordersBodyEl.addEventListener("click", function (e) {
+      var del = e.target.closest("[data-del-id]");
+      if (del) {
+        e.preventDefault();
+        e.stopPropagation();
+        return deleteOrder(del.dataset.delId);
+      }
+      var email = e.target.closest("[data-email]");
+      if (email) {
+        e.preventDefault();
+        e.stopPropagation();
+        return renderCustomerProfile(email.dataset.email);
+      }
+      var pay = e.target.closest("[data-pay-id]");
+      if (pay) {
+        e.preventDefault();
+        e.stopPropagation();
+        return openPayProof(Number(pay.dataset.payId));
+      }
+      var row = e.target.closest("[data-od-id]");
+      if (row) {
+        openOrderDetailModal(Number(row.dataset.odId));
+      }
+    });
+  }
 
   /* ---- Order Detail Modal (for Mobile & Quick Action) ---- */
   var odOverlay = $("order-detail-overlay");
@@ -816,8 +832,9 @@
     mWrapEl.addEventListener("click", function (e) {
       var del = e.target.closest("[data-del-id]");
       if (del) {
+        e.preventDefault();
         e.stopPropagation();
-        return deleteOrder(Number(del.dataset.delId));
+        return deleteOrder(del.dataset.delId);
       }
       var card = e.target.closest("[data-od-id]");
       if (card) {
