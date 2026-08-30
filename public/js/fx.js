@@ -12,22 +12,24 @@
     var flash = $id("hero-flash");
     if (!host || !flash || reduce) return;
 
+    var isMobile = window.innerWidth < 768;
     var canvas = host;
     var ctx = canvas.getContext("2d");
-    var DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var DPR = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
 
     var drops = [];
-    var MAX_DROPS = 90;
+    var MAX_DROPS = isMobile ? 30 : 90;
     var running = true;
     var last = 0;
     var nextFlash = 4000 + Math.random() * 5000;
+    var rainRaf = null;
 
     function resize() {
       var r = canvas.parentElement.getBoundingClientRect();
       canvas.width = Math.round(r.width * DPR);
       canvas.height = Math.round(r.height * DPR);
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      spawn(Math.max(40, Math.round((r.width * r.height) / 14000)));
+      spawn(Math.max(isMobile ? 15 : 40, Math.round((r.width * r.height) / (isMobile ? 35000 : 14000))));
     }
 
     function spawn(n) {
@@ -54,7 +56,10 @@
     }
 
     function frame(now) {
-      if (!running) return;
+      if (!running) {
+        rainRaf = null;
+        return;
+      }
       var w = canvas.width / DPR;
       var h = canvas.height / DPR;
       var dt = Math.min((now - last) / 1000 || 0.016, 0.05);
@@ -76,25 +81,32 @@
         ctx.lineTo(d.x - 6 * dt * 14, d.y + d.len);
         ctx.stroke();
       }
-      requestAnimationFrame(frame);
+      rainRaf = requestAnimationFrame(frame);
     }
 
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
+        var wasRunning = running;
         running = e.isIntersecting;
-        if (running) { last = performance.now(); requestAnimationFrame(frame); }
+        if (running && !wasRunning) {
+          last = performance.now();
+          if (!rainRaf) rainRaf = requestAnimationFrame(frame);
+        } else if (!running && rainRaf) {
+          cancelAnimationFrame(rainRaf);
+          rainRaf = null;
+        }
       });
-    }, { threshold: 0 });
+    }, { threshold: 0.05 });
     io.observe(host.closest(".hero"));
 
     window.addEventListener("resize", resize);
     resize();
-    requestAnimationFrame(frame);
+    rainRaf = requestAnimationFrame(frame);
   }
 
-  /* ============ 2. TILT 3D + GLARE KARTU ============ */
+  /* ============ 2. TILT 3D + GLARE KARTU (Khusus Desktop Mouse) ============ */
   function cardTilt() {
-    if (reduce) return;
+    if (reduce || !window.matchMedia("(pointer: fine)").matches) return;
     var pending = null;
     var raf = null;
 
@@ -109,6 +121,7 @@
     }
 
     document.addEventListener("pointermove", function (e) {
+      if (e.pointerType !== "mouse") return;
       var card = e.target.closest ? e.target.closest(".card") : null;
       if (!card) return;
       var rect = card.getBoundingClientRect();
@@ -123,6 +136,7 @@
       };
       if (!raf) raf = requestAnimationFrame(apply);
     }, { passive: true });
+
     document.addEventListener("pointerleave", function () {
       var card = document.querySelector(".card:hover");
       if (card) return;
@@ -285,9 +299,10 @@
     var footer = document.querySelector(".footer");
     if (!footer) return;
     var html = document.documentElement;
-    var trailing = null;
+    var ticking = false;
 
     function paint() {
+      ticking = false;
       var h = footer.offsetHeight;
       html.style.setProperty("--footer-h", h + "px");
       var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
@@ -302,20 +317,20 @@
     }
     paint.lastY = null;
 
-    function onScroll() {
-      paint();
-      clearTimeout(trailing);
-      trailing = setTimeout(paint, 250);
+    function requestPaint() {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(paint);
+      }
     }
 
     html.classList.add("footer-reveal");
     paint();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", function () { paint(); });
+    window.addEventListener("scroll", requestPaint, { passive: true });
+    window.addEventListener("resize", requestPaint, { passive: true });
     if (window.ScrollTrigger && typeof ScrollTrigger.addEventListener === "function") {
-      ScrollTrigger.addEventListener("refresh", paint);
+      ScrollTrigger.addEventListener("refresh", requestPaint);
     }
-    setInterval(paint, 500);
   }
 
   /* ============ 10. EASTER EGG KONAMI ============ */
@@ -418,20 +433,19 @@
     }
   }
 
-  /* ============ 11. BLOB GLOW DI LATAR ============ */
+  /* ============ 11. BLOB GLOW DI LATAR (Khusus Desktop) ============ */
   function bgOrbs() {
-    if (reduce || !hasGsap) return;
+    if (reduce || !hasGsap || window.innerWidth < 1024) return;
     var COLS = [
       ["214,255,63", 0.3],
       ["63,169,255", 0.22],
       ["255,79,216", 0.18]
     ];
     var hosts = document.querySelectorAll(".section, .cta");
-    var wide = window.innerWidth >= 1024;
     hosts.forEach(function (sec) {
       var r = sec.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
-      var n = wide ? 2 : 1;
+      var n = 2;
       for (var i = 0; i < n; i++) {
         var orb = document.createElement("div");
         orb.className = "bg-orb";

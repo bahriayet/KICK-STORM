@@ -256,12 +256,14 @@
       goToScene(currentIndex + 1, false);
     }
 
+    var isVisible = true;
+
     function startProgressLoop() {
       if (progressInterval) cancelAnimationFrame(progressInterval);
       progressStartTime = performance.now();
 
       function tick(now) {
-        if (isPlaying) {
+        if (isPlaying && isVisible) {
           var elapsed = now - progressStartTime;
           var pct = Math.min(elapsed / sceneDuration, 1);
           var activeFill = progressSegments[currentIndex] ? progressSegments[currentIndex].querySelector(".progress-fill") : null;
@@ -272,9 +274,13 @@
             nextScene();
           }
         }
+        if (isVisible) {
+          progressInterval = requestAnimationFrame(tick);
+        }
+      }
+      if (isVisible) {
         progressInterval = requestAnimationFrame(tick);
       }
-      progressInterval = requestAnimationFrame(tick);
     }
 
     function togglePlay() {
@@ -285,51 +291,96 @@
       if (iconPlay) iconPlay.style.display = isPlaying ? "none" : "block";
       if (isPlaying) {
         progressStartTime = performance.now();
+        if (isVisible && !progressInterval) startProgressLoop();
       }
     }
 
-    // 3D Parallax & Gyro Tilt
+    // 3D Parallax & Gyro Tilt (Hanya aktif untuk desktop mouse pointer agar HP tidak lag)
+    var isFinePointer = window.matchMedia("(pointer: fine)").matches;
     var cardBounds = null;
     var targetTiltX = 0;
     var targetTiltY = 0;
     var currentTiltX = 0;
     var currentTiltY = 0;
     var tiltRaf = null;
+    var tiltActive = false;
 
     function updateTilt() {
+      if (!isFinePointer || reduceMotion || !isVisible) {
+        tiltRaf = null;
+        return;
+      }
       currentTiltX += (targetTiltX - currentTiltX) * 0.1;
       currentTiltY += (targetTiltY - currentTiltY) * 0.1;
 
-      if (card && !reduceMotion) {
+      if (card) {
         card.style.transform = 
-          "perspective(1000px) rotateX(" + currentTiltX + "deg) rotateY(" + currentTiltY + "deg) translateZ(0)";
+          "perspective(1000px) rotateX(" + currentTiltX.toFixed(2) + "deg) rotateY(" + currentTiltY.toFixed(2) + "deg) translateZ(0)";
+      }
+
+      // Stop RAF loop jika sudah diam mendekati 0 untuk menghemat baterai & CPU
+      if (Math.abs(targetTiltX - currentTiltX) < 0.01 && Math.abs(targetTiltY - currentTiltY) < 0.01 && !tiltActive) {
+        tiltRaf = null;
+        return;
       }
       tiltRaf = requestAnimationFrame(updateTilt);
     }
-    if (!reduceMotion) tiltRaf = requestAnimationFrame(updateTilt);
 
-    container.addEventListener("pointermove", function (e) {
-      if (reduceMotion) return;
-      if (!cardBounds) cardBounds = container.getBoundingClientRect();
-      var x = (e.clientX - cardBounds.left) / cardBounds.width - 0.5;
-      var y = (e.clientY - cardBounds.top) / cardBounds.height - 0.5;
-      targetTiltY = x * 14;  // rotateY
-      targetTiltX = -y * 12; // rotateX
+    if (isFinePointer && !reduceMotion) {
+      container.addEventListener("pointermove", function (e) {
+        if (e.pointerType !== "mouse") return;
+        tiltActive = true;
+        if (!cardBounds) cardBounds = container.getBoundingClientRect();
+        var x = (e.clientX - cardBounds.left) / cardBounds.width - 0.5;
+        var y = (e.clientY - cardBounds.top) / cardBounds.height - 0.5;
+        targetTiltY = x * 14;  // rotateY
+        targetTiltX = -y * 12; // rotateX
 
-      var flare = container.querySelector(".showcase-flare");
-      if (flare) {
-        flare.style.transform = "translate(" + (x * 40) + "px, " + (y * 40) + "px)";
-        flare.style.opacity = "0.7";
-      }
-    });
+        var flare = container.querySelector(".showcase-flare");
+        if (flare) {
+          flare.style.transform = "translate(" + (x * 40) + "px, " + (y * 40) + "px)";
+          flare.style.opacity = "0.7";
+        }
+        if (!tiltRaf) tiltRaf = requestAnimationFrame(updateTilt);
+      }, { passive: true });
 
-    container.addEventListener("pointerleave", function () {
-      targetTiltX = 0;
-      targetTiltY = 0;
-      cardBounds = null;
-      var flare = container.querySelector(".showcase-flare");
-      if (flare) flare.style.opacity = "0.4";
-    });
+      container.addEventListener("pointerleave", function () {
+        tiltActive = false;
+        targetTiltX = 0;
+        targetTiltY = 0;
+        cardBounds = null;
+        var flare = container.querySelector(".showcase-flare");
+        if (flare) flare.style.opacity = "0.4";
+        if (!tiltRaf) tiltRaf = requestAnimationFrame(updateTilt);
+      }, { passive: true });
+    }
+
+    // IntersectionObserver: Jeda total saat user scroll ke bawah (sangat menghemat daya HP & RAM)
+    var showcaseIO = null;
+    if ("IntersectionObserver" in window) {
+      showcaseIO = new IntersectionObserver(function (entries) {
+        var entry = entries[0];
+        var wasVisible = isVisible;
+        isVisible = entry && entry.isIntersecting;
+        if (isVisible && !wasVisible) {
+          progressStartTime = performance.now();
+          startProgressLoop();
+          if (isFinePointer && !reduceMotion && !tiltRaf) {
+            tiltRaf = requestAnimationFrame(updateTilt);
+          }
+        } else if (!isVisible && wasVisible) {
+          if (progressInterval) {
+            cancelAnimationFrame(progressInterval);
+            progressInterval = null;
+          }
+          if (tiltRaf) {
+            cancelAnimationFrame(tiltRaf);
+            tiltRaf = null;
+          }
+        }
+      }, { threshold: 0.05 });
+      showcaseIO.observe(container);
+    }
 
     // Angle Chips Click
     angleChips.forEach(function (chip) {
@@ -383,6 +434,7 @@
       destroy: function () {
         if (progressInterval) cancelAnimationFrame(progressInterval);
         if (tiltRaf) cancelAnimationFrame(tiltRaf);
+        if (showcaseIO) showcaseIO.disconnect();
       }
     };
   }

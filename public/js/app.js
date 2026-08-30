@@ -10,6 +10,10 @@ function escapeHtml(s) {
 
 gsap.registerPlugin(ScrollTrigger);
 
+if (window.ScrollTrigger) {
+  ScrollTrigger.config({ ignoreMobileResize: true });
+}
+
 var mm = gsap.matchMedia();
 
 mm.add("(prefers-reduced-motion: reduce)", function () {
@@ -597,7 +601,7 @@ function renderProducts(products, variantFilter, sortBy) {
       : '<svg width="18" height="18" viewBox="0 0 24 24" aria-label="Tambah ke wishlist"><path fill="#9C9C9C" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
 
     return '<article class="card">' +
-      '<div class="card-media" style="position:relative;overflow:hidden;background:#18181C;"><span class="card-badge">' + p.badge + '</span><img src="' + productImg(p) + '" alt="' + p.name + '" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;display:block;" /></div>' +
+      '<div class="card-media" style="position:relative;overflow:hidden;background:#18181C;"><span class="card-badge">' + p.badge + '</span><img src="' + productImg(p) + '" alt="' + p.name + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;display:block;" /></div>' +
       '<div class="card-body">' +
       '<h3 class="card-name">' + p.name + "</h3>" +
       '<p class="card-tag">' + p.tag + "</p>" +
