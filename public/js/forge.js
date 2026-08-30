@@ -120,7 +120,7 @@
     carousel.innerHTML = PRESETS.map(function (p, i) {
       var activeClass = i === state.currentIndex ? " active" : "";
       return '<div class="forge-slide' + activeClass + '" data-index="' + i + '">' +
-        '<img src="' + p.image + '" alt="' + p.name + '" class="forge-img" loading="eager" />' +
+        '<img src="' + p.image + '" alt="' + p.name + '" class="forge-img" loading="' + (i === 0 ? "eager" : "lazy") + '" decoding="async" />' +
         '</div>';
     }).join("");
 

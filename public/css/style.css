@@ -2013,22 +2013,6 @@ html.footer-reveal main{margin-bottom:var(--footer-h,0)}
   }
 }
 
-/* === PERFORMANCE: content-visibility for below-fold static sections === */
-#keunggulan,
-#klub,
-#lacak,
-footer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 600px;
-}
-
-/* GPU-promote animated elements only during animation */
-.showcase-slide,
-.card,
-.hero-shoe-wrap {
-  will-change: transform;
-}
-
 /* Reduce paint area for fixed elements */
 .nav,
 .progress-bar,
