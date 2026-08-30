@@ -227,7 +227,7 @@
         var statusBadge = '<span class="badge-status">' + (STATUS_LABELS[o.status] || o.status) + "</span>";
         var resiBadge = (shipped && o.tracking_number) ? '<span class="chip mono" style="font-size:.72rem">Resi: ' + escapeHtml(o.tracking_number) + "</span>" : "";
         var payProofHighlight = (o.status === "awaiting_payment" && o.payment_proof)
-          ? '<button class="btn btn-primary btn-sm pay-btn" type="button" data-pay-id="' + o.id + '">💳 Cek Bukti</button>'
+          ? '<button class="btn btn-primary btn-sm pay-btn" type="button" data-pay-id="' + o.id + '">Cek Bukti</button>'
           : "";
 
         var extraChips = (o.shipping > 0 ? '<span class="chip">Ongkir ' + rupiah(o.shipping) + "</span>" : "") +
@@ -243,8 +243,8 @@
           statusBadge +
           resiBadge +
           payProofHighlight +
-          '<button class="btn btn-ghost btn-sm od-open-btn" type="button" data-od-id="' + o.id + '">⚙️ Kelola &amp; Detail &rarr;</button>' +
-          '<button class="btn btn-danger btn-sm od-del-btn" type="button" data-del-id="' + o.id + '" title="Hapus pesanan #' + o.id + '">🗑️ Hapus</button>' +
+          '<button class="btn btn-ghost btn-sm od-open-btn" type="button" data-od-id="' + o.id + '">Kelola &amp; Detail &rarr;</button>' +
+          '<button class="btn btn-danger btn-sm od-del-btn" type="button" data-del-id="' + o.id + '" title="Hapus pesanan #' + o.id + '">Hapus</button>' +
           "</div>";
 
         return '<tr class="desktop-order-row" data-od-id="' + o.id + '">' +
@@ -286,7 +286,7 @@
                 '</div>' +
                 '<div style="display:flex;gap:6px;align-items:center">' +
                   '<span class="oc-action-pill">Kelola &rarr;</span>' +
-                  '<button class="btn btn-danger btn-sm" type="button" data-del-id="' + o.id + '" style="padding:4px 8px;font-size:0.72rem" title="Hapus pesanan #' + o.id + '">🗑️</button>' +
+                  '<button class="btn btn-danger btn-sm" type="button" data-del-id="' + o.id + '" style="padding:4px 8px;font-size:0.72rem" title="Hapus pesanan #' + o.id + '">Hapus</button>' +
                 '</div>' +
               '</div>' +
             '</div>';
@@ -684,10 +684,10 @@
 
     // WA Kurir
     var waCourierText = "Halo Kurir KICKSTORM, tugas antar pesanan #" + o.id + ":\n" +
-      "👤 Pelanggan: " + o.customer_name + "\n" +
-      "📍 Alamat: " + o.address + "\n" +
-      "💰 Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
-      "🚀 Navigasi Rute: " + (o.maps_url || routeUrl);
+      "Pelanggan: " + o.customer_name + "\n" +
+      "Alamat: " + o.address + "\n" +
+      "Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
+      "Navigasi Rute: " + (o.maps_url || routeUrl);
     $("od-wa-link").href = "https://wa.me/?text=" + encodeURIComponent(waCourierText);
 
     // Radar / Posisi Kurir
@@ -703,7 +703,7 @@
     }
 
     // Set Lokasi Kurir
-    $("od-cloc-btn").textContent = o.courier_lat ? "🛵 Ubah Posisi Kurir" : "🛵 Set Posisi Kurir";
+    $("od-cloc-btn").textContent = o.courier_lat ? "Ubah Posisi Kurir" : "Set Posisi Kurir";
 
     // Bukti Bayar
     var payBtn = $("od-pay-btn");
@@ -873,9 +873,9 @@
       }).addTo(locMap);
       var buyerIcon = L.divIcon({
         className: "",
-        html: '<div style="width:32px;height:32px;border-radius:50%;background:#38BDF8;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(56,189,248,0.6),0 0 0 2px #0A0A0C;transform:translate(-50%,-50%)">🏠</div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        html: '<div style="width:20px;height:20px;border-radius:50%;background:#38BDF8;border:3px solid #fff;box-shadow:0 0 10px rgba(56,189,248,0.8);transform:translate(-50%,-50%)"></div>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
       });
       locMarker = L.marker(pos, { icon: buyerIcon }).addTo(locMap);
     } else {
@@ -969,9 +969,9 @@
       }).addTo(clMap);
       var courierIcon = L.divIcon({
         className: "",
-        html: '<div style="width:34px;height:34px;border-radius:50%;background:#D6FF3F;color:#0A0A0C;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(214,255,63,0.8),0 0 0 2px #0A0A0C;transform:translate(-50%,-50%);cursor:grab">🛵</div>',
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
+        html: '<div style="width:24px;height:24px;border-radius:50%;background:#D6FF3F;border:3px solid #0A0A0C;box-shadow:0 0 14px rgba(214,255,63,0.9);transform:translate(-50%,-50%);cursor:grab"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
       });
       clMarker = L.marker(start, { icon: courierIcon, draggable: true }).addTo(clMap);
 
@@ -1731,7 +1731,7 @@
         kmWrap.innerHTML = list.map(function (c) {
           return '<div class="admin-m-card">' +
             '<div class="admin-m-top">' +
-              '<strong class="admin-m-title">🛵 ' + escapeHtml(c.name) + "</strong>" +
+              '<strong class="admin-m-title">' + escapeHtml(c.name) + "</strong>" +
               '<span class="badge-pill ' + (c.active ? "" : "badge-off") + '">' + (c.active ? "Aktif" : "Nonaktif") + "</span>" +
             "</div>" +
             '<div class="admin-m-mid">' +
@@ -1840,7 +1840,7 @@
         mmWrap.innerHTML = members.map(function (m) {
           return '<div class="admin-m-card">' +
             '<div class="admin-m-top">' +
-              '<strong class="admin-m-title">👤 ' + escapeHtml(m.name) + "</strong>" +
+              '<strong class="admin-m-title">' + escapeHtml(m.name) + "</strong>" +
               '<span class="badge-pill">' + escapeHtml(m.level || "Bronze") + "</span>" +
             "</div>" +
             '<div class="admin-m-mid">' +
@@ -2070,17 +2070,17 @@
 
     var bounds = L.latLngBounds([]);
 
-    // Store Hub Marker (🏬 Toko KICKSTORM)
+    // Store Hub Marker (Toko KICKSTORM)
     if (storeCfg && storeCfg.lat && storeCfg.lng) {
       var storeLatLng = [Number(storeCfg.lat), Number(storeCfg.lng)];
       var storeIcon = L.divIcon({
         className: "leaflet-marker-custom",
-        html: '<div class="pin-admin-store">🏬 ' + escapeHtml(storeCfg.name || "Toko KICKSTORM") + '</div>',
+        html: '<div class="pin-admin-store">' + escapeHtml(storeCfg.name || "Toko KICKSTORM") + '</div>',
         iconSize: [140, 30],
         iconAnchor: [70, 15]
       });
       mapAllStoreMarker = L.marker(storeLatLng, { icon: storeIcon, zIndexOffset: 1000 }).addTo(mapAllMarkersLayer);
-      mapAllStoreMarker.bindPopup('<div style="font-family:\'Space Grotesk\',sans-serif;padding:4px"><strong style="color:var(--volt)">🏬 ' + escapeHtml(storeCfg.name || "Toko KICKSTORM Hub") + '</strong><br><span style="font-size:0.76rem;color:var(--muted)">Titik Pusat Pengiriman</span></div>');
+      mapAllStoreMarker.bindPopup('<div style="font-family:\'Space Grotesk\',sans-serif;padding:4px"><strong style="color:var(--volt)">' + escapeHtml(storeCfg.name || "Toko KICKSTORM Hub") + '</strong><br><span style="font-size:0.76rem;color:var(--muted)">Titik Pusat Pengiriman</span></div>');
       bounds.extend(storeLatLng);
     }
 
@@ -2127,25 +2127,25 @@
         : "1 item";
 
       var waCourierText = "Halo Kurir KICKSTORM, tugas antar pesanan #" + o.id + ":\n" +
-        "👤 Pelanggan: " + o.customer_name + "\n" +
-        "📍 Alamat: " + o.address + "\n" +
-        "💰 Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
-        "🚀 Navigasi: https://www.google.com/maps/dir/?api=1&destination=" + o.lat + "," + o.lng;
+        "Pelanggan: " + o.customer_name + "\n" +
+        "Alamat: " + o.address + "\n" +
+        "Total: " + rupiah(o.total) + (o.payment_method === "cod" ? " (BAYAR COD)" : " (LUNAS)") + "\n" +
+        "Navigasi: https://www.google.com/maps/dir/?api=1&destination=" + o.lat + "," + o.lng;
 
       var popupHtml = '<div class="admin-map-popup">' +
         '<div class="amp-head">' +
           '<span class="amp-title">#' + o.id + ' — ' + escapeHtml(o.customer_name) + '</span>' +
           '<span class="badge-status" style="font-size:0.68rem">' + (STATUS_LABELS[o.status] || o.status) + '</span>' +
         '</div>' +
-        '<div class="amp-addr">📍 ' + escapeHtml(o.address || "-") + (distKm > 0 ? ' <strong style="color:var(--volt)">(' + Math.round(distKm) + ' km)</strong>' : '') + '</div>' +
+        '<div class="amp-addr">' + escapeHtml(o.address || "-") + (distKm > 0 ? ' <strong style="color:var(--volt)">(' + Math.round(distKm) + ' km)</strong>' : '') + '</div>' +
         '<div class="amp-mid">' +
           '<span class="muted" style="font-size:0.75rem">' + escapeHtml(itemSummary) + '</span>' +
           '<strong class="price" style="color:var(--volt)">' + rupiah(o.total) + '</strong>' +
         '</div>' +
         '<div class="amp-actions">' +
-          '<button class="btn btn-primary btn-sm amp-btn" type="button" onclick="openOrderDetailModal(' + o.id + ')">⚙️ Kelola &amp; Detail</button>' +
-          '<a class="btn btn-ghost btn-sm amp-btn" href="https://www.google.com/maps/dir/?api=1&destination=' + o.lat + ',' + o.lng + '&travelmode=driving" target="_blank" rel="noopener">🚀 Rute Google Maps ↗</a>' +
-          '<a class="btn btn-ghost btn-sm amp-btn" href="https://wa.me/?text=' + encodeURIComponent(waCourierText) + '" target="_blank" rel="noopener" style="color:#25d366">📲 Hubungi WA Kurir</a>' +
+          '<button class="btn btn-primary btn-sm amp-btn" type="button" onclick="openOrderDetailModal(' + o.id + ')">Kelola &amp; Detail</button>' +
+          '<a class="btn btn-ghost btn-sm amp-btn" href="https://www.google.com/maps/dir/?api=1&destination=' + o.lat + ',' + o.lng + '&travelmode=driving" target="_blank" rel="noopener">Rute Google Maps ↗</a>' +
+          '<a class="btn btn-ghost btn-sm amp-btn" href="https://wa.me/?text=' + encodeURIComponent(waCourierText) + '" target="_blank" rel="noopener" style="color:#25d366">Hubungi WA Kurir</a>' +
         '</div>' +
       '</div>';
 
@@ -2166,10 +2166,10 @@
               '<span class="moc-id">#' + o.id + ' ' + escapeHtml(o.customer_name) + '</span>' +
               '<span class="badge-status" style="font-size:0.68rem">' + (STATUS_LABELS[o.status] || o.status) + '</span>' +
             '</div>' +
-            '<div class="moc-addr">📍 ' + escapeHtml(o.address || "-") + '</div>' +
+            '<div class="moc-addr">' + escapeHtml(o.address || "-") + '</div>' +
             '<div class="moc-bot">' +
               '<strong style="color:var(--volt)">' + rupiah(o.total) + '</strong>' +
-              '<span class="muted">' + (distKm > 0 ? (Math.round(distKm) + ' km') : '') + ' &bull; 🎯 Terbang ke Pin</span>' +
+              '<span class="muted">' + (distKm > 0 ? (Math.round(distKm) + ' km') : '') + ' &bull; Terbang ke Pin</span>' +
             '</div>' +
           '</div>';
         }).join("");
@@ -2269,7 +2269,7 @@
 
     var storeIcon = L.divIcon({
       className: "",
-      html: '<div class="pin-admin-store" style="cursor:grab">🏬 Geser Titik Toko</div>',
+      html: '<div class="pin-admin-store" style="cursor:grab">Geser Titik Toko</div>',
       iconSize: [140, 30],
       iconAnchor: [70, 15]
     });
