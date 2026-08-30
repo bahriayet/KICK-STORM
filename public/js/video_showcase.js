@@ -9,7 +9,7 @@
   var SCENES = [
     {
       id: "angle-1",
-      src: "/images/hero_angle1.jpg",
+      src: "/images/hero_angle1.webp",
       tag: "SCENE 01 / PROFILE",
       title: "Volt 3/4 Dynamic",
       desc: "Siluet badai perkotaan dengan aksen Volt Lime menyala di tengah gelap.",
@@ -20,7 +20,7 @@
     },
     {
       id: "angle-2",
-      src: "/images/hero_angle2.jpg",
+      src: "/images/hero_angle2.webp",
       tag: "SCENE 02 / CUSHIONING",
       title: "BounceFoam™ Core",
       desc: "Bantalan sol responsif generasi terbaru dengan energi kembali 72%.",
@@ -31,7 +31,7 @@
     },
     {
       id: "angle-3",
-      src: "/images/hero_angle3.jpg",
+      src: "/images/hero_angle3.webp",
       tag: "SCENE 03 / IMPACT",
       title: "Storm Strike Action",
       desc: "Diuji melewati 10.000 langkah di jalanan basah tanpa penurunan performa.",
@@ -42,7 +42,7 @@
     },
     {
       id: "angle-4",
-      src: "/images/hero_angle4.jpg",
+      src: "/images/hero_angle4.webp",
       tag: "SCENE 04 / TRACTION",
       title: "Hydro-Grip Outsole",
       desc: "Pola sol karet vulkanisir dengan cengkeraman maksimal di medan basah.",

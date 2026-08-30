@@ -9,7 +9,7 @@
       shortName: "Volt & Violet (01)",
       title: "PURE WHITE / NEON VIOLET / AIR BUBBLE",
       desc: "Upper knit putih bersih dengan aksen neon ungu & sol air bubble menyala",
-      image: "/images/koleksi_1.jpg",
+      image: "/images/koleksi_1.webp",
       price: 1950000,
       specs: {
         upper: "Pure White Knit",
@@ -25,7 +25,7 @@
       shortName: "Mint & Lilac (02)",
       title: "PASTEL LILAC / MINT GREEN / NEON GLOW",
       desc: "Upper lilac lembut dipadu sol mint green bercahaya reflektif",
-      image: "/images/koleksi_2.jpg",
+      image: "/images/koleksi_2.webp",
       price: 1950000,
       specs: {
         upper: "Pastel Lilac Mesh",
@@ -41,7 +41,7 @@
       shortName: "Navy & Rose (03)",
       title: "NAVY BLUE SUEDE / ROSE GOLD / HIGH TOP",
       desc: "Siluet high-top navy suede premium & kerah quilted eksklusif",
-      image: "/images/koleksi_3.jpg",
+      image: "/images/koleksi_3.webp",
       price: 2150000,
       specs: {
         upper: "Navy Blue Suede",
@@ -57,7 +57,7 @@
       shortName: "Solar Orange (04)",
       title: "PITCH BLACK / SOLAR ORANGE / GLOW SWOOSH",
       desc: "Bodi all-black techwear dengan aksen amber orange api menyala",
-      image: "/images/koleksi_4.jpg",
+      image: "/images/koleksi_4.webp",
       price: 1950000,
       specs: {
         upper: "Matte Black & Leather",
@@ -73,7 +73,7 @@
       shortName: "Desert Sand (05)",
       title: "DESERT TAN / ICY BLUE SOLE / GOLD GLOW",
       desc: "Nuansa pasir gurun dipadukan dengan sol biru es transparan",
-      image: "/images/koleksi_5.jpg",
+      image: "/images/koleksi_5.webp",
       price: 1950000,
       specs: {
         upper: "Desert Sand Nubuck",
@@ -89,7 +89,7 @@
       shortName: "Sand Glow (06)",
       title: "WARM SAND / GOLDEN LIGHT / AIR MAX",
       desc: "Edisi reflektif emas hangat dengan bantalan udara penuh",
-      image: "/images/koleksi_6.jpg",
+      image: "/images/koleksi_6.webp",
       price: 1950000,
       specs: {
         upper: "Warm Sand Suede",
