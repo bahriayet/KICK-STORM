@@ -1413,31 +1413,48 @@ app.put("/api/orders/:id/tracking", requireAdmin, async (req, res) => {
 });
 
 const deleteOrderHandler = async (req, res) => {
-  const id = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: "ID pesanan tidak valid." });
-  const order = await db.get("SELECT id, status, total, email FROM orders WHERE id = ?", [id]);
-  if (!order) return res.status(404).json({ error: "Pesanan tidak ditemukan." });
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: "ID pesanan tidak valid." });
+    const order = await db.get("SELECT id, status, total, email FROM orders WHERE id = ?", [id]);
+    if (!order) return res.status(404).json({ error: "Pesanan tidak ditemukan." });
 
-  // Kembalikan stok jika pesanan belum dibatalkan sebelumnya
-  if (order.status !== "cancelled") {
-    const items = await db.all("SELECT product_id, qty FROM order_items WHERE order_id = ?", [id]);
-    for (const it of items) {
-      if (it.product_id) {
-        await db.run("UPDATE products SET stock = stock + ?, sold = MAX(sold - ?, 0) WHERE id = ?", [it.qty, it.qty, it.product_id]);
+    // Kembalikan stok jika pesanan belum dibatalkan sebelumnya
+    if (order.status !== "cancelled") {
+      try {
+        const items = await db.all("SELECT product_id, qty FROM order_items WHERE order_id = ?", [id]);
+        for (const it of items) {
+          if (it.product_id) {
+            try {
+              await db.run("UPDATE products SET stock = stock + ?, sold = MAX(sold - ?, 0) WHERE id = ?", [it.qty, it.qty, it.product_id]);
+            } catch (e) {
+              console.error("Restock error on order delete:", e);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Fetch items error on order delete:", e);
+      }
+
+      try {
+        const pts = pointsForOrder(order.total);
+        if (pts > 0 && order.email) {
+          await db.run("UPDATE members SET points = MAX(points - ?, 0) WHERE email = ?", [pts, order.email]);
+        }
+      } catch (e) {
+        console.error("Points reduction error on order delete:", e);
       }
     }
-    const pts = pointsForOrder(order.total);
-    if (pts > 0 && order.email) {
-      await db.run("UPDATE members SET points = MAX(points - ?, 0) WHERE email = ?", [pts, order.email]);
-    }
+
+    try { await db.run("DELETE FROM order_items WHERE order_id = ?", [id]); } catch (e) {}
+    try { await db.run("DELETE FROM order_status_log WHERE order_id = ?", [id]); } catch (e) {}
+    await db.run("DELETE FROM orders WHERE id = ?", [id]);
+
+    res.json({ ok: true, id, message: `Pesanan #${id} berhasil dihapus.` });
+  } catch (err) {
+    console.error("Error in deleteOrderHandler:", err);
+    res.status(500).json({ error: "Gagal menghapus pesanan: " + (err.message || err) });
   }
-
-  try { await db.run("DELETE FROM order_items WHERE order_id = ?", [id]); } catch (e) {}
-  try { await db.run("DELETE FROM order_status_log WHERE order_id = ?", [id]); } catch (e) {}
-  try { await db.run("DELETE FROM lokasi_kurir WHERE order_id = ?", [id]); } catch (e) {}
-  await db.run("DELETE FROM orders WHERE id = ?", [id]);
-
-  res.json({ ok: true, id, message: `Pesanan #${id} berhasil dihapus.` });
 };
 
 app.delete("/api/orders/:id", requireAdmin, deleteOrderHandler);
