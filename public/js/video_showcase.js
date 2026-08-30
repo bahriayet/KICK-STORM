@@ -447,8 +447,11 @@
     container.innerHTML = 
       '<div class="story-showcase-wrap">' +
         SCENES.map(function (s, i) {
+          var imgAttr = i === 0
+            ? 'src="' + s.src + '"'
+            : 'src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'1\' height=\'1\'/%3E" data-src="' + s.src + '"';
           return '<div class="story-slide ' + (i === 0 ? "active" : "") + '" data-story-idx="' + i + '">' +
-            '<img src="' + s.src + '" alt="' + s.title + '" class="story-img" />' +
+            '<img ' + imgAttr + ' alt="' + s.title + '" class="story-img" />' +
             '<div class="story-overlay-badge">' +
               '<span class="dot"></span> ' + s.title +
             '</div>' +
@@ -464,7 +467,15 @@
         // Progress 0.0 to 1.0 maps to slides 0, 1, 2
         var index = Math.min(Math.floor(progress * 3), 2);
         slides.forEach(function (sl, i) {
-          sl.classList.toggle("active", i === index);
+          var isActive = (i === index);
+          sl.classList.toggle("active", isActive);
+          if (isActive) {
+            var img = sl.querySelector(".story-img");
+            if (img && img.dataset.src) {
+              img.src = img.dataset.src;
+              delete img.dataset.src;
+            }
+          }
         });
       }
     };

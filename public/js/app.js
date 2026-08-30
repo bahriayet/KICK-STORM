@@ -95,15 +95,15 @@ mm.add("(prefers-reduced-motion: no-preference)", function () {
     ceritaShowcase = KickstormShowcase.initStoryShowcase("cerita-showcase-container");
   }
 
+  var isMobileScreen = window.innerWidth < 768;
   var pinTl = gsap.timeline({
     scrollTrigger: {
       trigger: ".pin-section",
       start: "top top",
-      end: "+=220%",
-      scrub: 0.5,
+      end: isMobileScreen ? "+=140%" : "+=220%",
+      scrub: isMobileScreen ? 0.2 : 0.5,
       pin: true,
-      anticipatePin: 1,
-      invalidateOnRefresh: true
+      anticipatePin: 1
     }
   });
 
