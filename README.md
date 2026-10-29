@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: ISC" src="https://img.shields.io/badge/license-ISC-2747C8?style=flat-square"></a>
+  <a href="https://github.com/bahriayet/KICK-STORM/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bahriayet/KICK-STORM/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Node.js" src="https://img.shields.io/badge/node-18%2B-3E9E76?style=flat-square&logo=node.js&logoColor=white">
   <img alt="Express" src="https://img.shields.io/badge/Express-5-111111?style=flat-square&logo=express&logoColor=white">
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Neon-2747C8?style=flat-square&logo=postgresql&logoColor=white">
