@@ -1,0 +1,202 @@
+{
+  "/api/config": {
+    "status": 200,
+    "body": {
+      "googleMapsApiKey": "",
+      "store": {
+        "name": "KICKSTORM Jakarta",
+        "lat": -6.2087634,
+        "lng": 106.845599
+      },
+      "shipping": {
+        "tiers": [
+          {
+            "max": 5,
+            "cost": 15000
+          },
+          {
+            "max": 10,
+            "cost": 25000
+          },
+          {
+            "max": 25,
+            "cost": 40000
+          },
+          {
+            "max": 9999,
+            "cost": 60000
+          }
+        ],
+        "freeMin": 0,
+        "maxKm": 25,
+        "outOfAreaCost": 50000,
+        "codKm": 8
+      },
+      "couriers": [
+        {
+          "id": 1,
+          "name": "Reguler KICKSTORM",
+          "tiers": [
+            {
+              "max": 5,
+              "cost": 15000
+            },
+            {
+              "max": 10,
+              "cost": 25000
+            },
+            {
+              "max": 25,
+              "cost": 40000
+            },
+            {
+              "max": 9999,
+              "cost": 60000
+            }
+          ],
+          "codKm": 8,
+          "active": true
+        },
+        {
+          "id": 2,
+          "name": "Express Kilat",
+          "tiers": [
+            {
+              "max": 5,
+              "cost": 25000
+            },
+            {
+              "max": 10,
+              "cost": 40000
+            },
+            {
+              "max": 25,
+              "cost": 60000
+            },
+            {
+              "max": 9999,
+              "cost": 90000
+            }
+          ],
+          "codKm": 3,
+          "active": true
+        }
+      ],
+      "paymentFlow": false,
+      "waNumber": "",
+      "flashSale": null,
+      "nextDrop": null
+    }
+  },
+  "/api/next-drop": {
+    "status": 200,
+    "body": {
+      "drop": null
+    }
+  },
+  "/api/coupons": {
+    "status": 200,
+    "body": {
+      "coupons": [
+        {
+          "code": "STORM10",
+          "type": "percent",
+          "value": 10,
+          "min_order": 100000
+        }
+      ]
+    }
+  },
+  "/api/stats": {
+    "status": 200,
+    "body": {
+      "sold": 13085,
+      "subscribers": 0,
+      "products": 6,
+      "orders": 0,
+      "revenue": 0,
+      "rating": 4.9,
+      "shippingHours": 24,
+      "lowStock": 2
+    }
+  },
+  "/api/products": {
+    "status": 200,
+    "body": {
+      "products": [
+        {
+          "id": 1,
+          "name": "Volt Runner — Beta 01",
+          "tag": "Lari / Jalan / Sehari-hari",
+          "badge": "Best Seller",
+          "price": 1850000,
+          "variant": "mono",
+          "stock": 42,
+          "sold": 5124,
+          "image_url": "",
+          "eta_hours": null
+        },
+        {
+          "id": 2,
+          "name": "Night Runner — Mono 02",
+          "tag": "All Black / Techwear",
+          "badge": "New",
+          "price": 1450000,
+          "variant": "void",
+          "stock": 38,
+          "sold": 2143,
+          "image_url": "",
+          "eta_hours": null
+        },
+        {
+          "id": 3,
+          "name": "Reign Low — Storm 03",
+          "tag": "Low Cut / Premium",
+          "badge": "Limited",
+          "price": 2100000,
+          "variant": "volt",
+          "stock": 24,
+          "sold": 987,
+          "image_url": "",
+          "eta_hours": null
+        },
+        {
+          "id": 4,
+          "name": "Ghost Zero — White 04",
+          "tag": "Monochrome / Clean",
+          "badge": "Restock",
+          "price": 1250000,
+          "variant": "ghost",
+          "stock": 55,
+          "sold": 3301,
+          "image_url": "",
+          "eta_hours": null
+        },
+        {
+          "id": 5,
+          "name": "Hujan Runner — Rain 05",
+          "tag": "Anti-air / Trail",
+          "badge": "New",
+          "price": 1600000,
+          "variant": "dark",
+          "stock": 31,
+          "sold": 876,
+          "image_url": "",
+          "eta_hours": null
+        },
+        {
+          "id": 6,
+          "name": "Dawn Low — Cream 06",
+          "tag": "Casual / Soft Tone",
+          "badge": "Limited",
+          "price": 1350000,
+          "variant": "cream",
+          "stock": 20,
+          "sold": 654,
+          "image_url": "",
+          "eta_hours": null
+        }
+      ]
+    }
+  }
+}

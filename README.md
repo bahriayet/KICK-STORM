@@ -11,6 +11,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: ISC" src="https://img.shields.io/badge/license-ISC-2747C8?style=flat-square"></a>
   <a href="https://github.com/bahriayet/KICK-STORM/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bahriayet/KICK-STORM/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://bahriayet.github.io/KICK-STORM/"><img alt="Live demo" src="https://img.shields.io/badge/live%20demo-sample%20data-B6FF3B?style=flat-square"></a>
   <img alt="Node.js" src="https://img.shields.io/badge/node-18%2B-3E9E76?style=flat-square&logo=node.js&logoColor=white">
   <img alt="Express" src="https://img.shields.io/badge/Express-5-111111?style=flat-square&logo=express&logoColor=white">
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Neon-2747C8?style=flat-square&logo=postgresql&logoColor=white">
@@ -24,6 +25,11 @@ the store.
 
 The project is intentionally dependency-light on the frontend — plain HTML,
 CSS, and JavaScript — with an Express API and PostgreSQL in the back.
+
+> **Live demo:** [bahriayet.github.io/KICK-STORM](https://bahriayet.github.io/KICK-STORM/)
+> is a static GitHub Pages build with recorded sample data. The storefront and
+> product grid work; checkout, admin, and courier actions need the API and are
+> disabled in the demo.
 
 ## Features
 
