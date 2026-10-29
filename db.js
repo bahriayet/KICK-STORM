@@ -13,33 +13,6 @@ if (!fs.existsSync(dataDir)) {
   try { fs.mkdirSync(dataDir, { recursive: true }); } catch (e) {}
 }
 
-const imgDir = path.join(__dirname, "public", "images");
-if (!fs.existsSync(imgDir)) {
-  try { fs.mkdirSync(imgDir, { recursive: true }); } catch (e) {}
-}
-
-// Copy images if exist
-const artifactDir = "C:\\Users\\ASUS\\.gemini\\antigravity-ide\\brain\\4724e8ba-701c-4734-bc5e-e0601f058ae3";
-const currentUploads = "C:\\Users\\ASUS\\.gemini\\antigravity-ide\\brain\\47c85d70-3016-47c0-a72e-0a97cb20f9e2\\.user_uploaded";
-const imgMappings = [
-  { src: path.join(artifactDir, "volt_storm_hero_1786651016643.jpg"), dest: path.join(imgDir, "hero_sneaker_main.jpg") },
-  { src: path.join(artifactDir, "volt_storm_side_1786651044791.jpg"), dest: path.join(imgDir, "hero_sneaker_side.jpg") },
-  { src: path.join(artifactDir, "volt_storm_angle_1786651062467.jpg"), dest: path.join(imgDir, "hero_sneaker_angle.jpg") },
-  { src: path.join(currentUploads, "media_1786695778631.jpg"), dest: path.join(imgDir, "koleksi_1.jpg") },
-  { src: path.join(currentUploads, "media_1786695784831.jpg"), dest: path.join(imgDir, "koleksi_2.jpg") },
-  { src: path.join(currentUploads, "media_1786695788550.jpg"), dest: path.join(imgDir, "koleksi_3.jpg") },
-  { src: path.join(currentUploads, "media_1786695797008.jpg"), dest: path.join(imgDir, "koleksi_4.jpg") },
-  { src: path.join(currentUploads, "media_1786695797108.jpg"), dest: path.join(imgDir, "koleksi_5.jpg") },
-  { src: path.join(currentUploads, "media_1786696177148.jpg"), dest: path.join(imgDir, "koleksi_6.jpg") }
-];
-imgMappings.forEach(({ src, dest }) => {
-  try {
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, dest);
-    }
-  } catch (e) {}
-});
-
 // Configure Database Connection: Neon PostgreSQL vs SQLite/LibSQL
 const databaseUrl = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.POSTGRES_URL;
 

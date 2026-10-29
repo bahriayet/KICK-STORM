@@ -1,7 +1,7 @@
 {
-  "name": "tes",
+  "name": "kickstorm",
   "version": "1.0.0",
-  "description": "KICKSTORM — Express + Neon PostgreSQL full stack",
+  "description": "KICKSTORM — premium sneaker storefront with Express and Neon PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,9 +10,27 @@
     "backup": "node backup.js",
     "purge": "node purge.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "sneakers",
+    "ecommerce",
+    "express",
+    "postgresql",
+    "threejs",
+    "vercel"
+  ],
+  "author": "Bahri Muhammad",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bahriayet/KICK-STORM.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bahriayet/KICK-STORM/issues"
+  },
+  "homepage": "https://github.com/bahriayet/KICK-STORM#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "type": "commonjs",
   "dependencies": {
     "@libsql/client": "^0.17.4",

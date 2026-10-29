@@ -1,11 +1,8 @@
 # Dependencies
 node_modules/
 
-# Database & Local Uploads
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/uploads/
+# Local database, backups, and uploads (never commit customer data)
+data/
 data.sqlite3
 scratch_*
 
