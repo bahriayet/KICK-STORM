@@ -24,4 +24,5 @@ Thumbs.db
 .vscode/
 .idea/
 .agents/
-.commandcode/demo/dist/
+.commandcode/
+demo/dist/
